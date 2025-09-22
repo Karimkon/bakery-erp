@@ -41,7 +41,7 @@
         </div>
 
         <h1 class="text-3xl sm:text-5xl font-extrabold mb-3">
-            <span class="electric-icon">🥐</span> Bakery ERP
+            <span class="electric-icon">🥐</span> Bread Cravers Bakery ERP
         </h1>
 
         <p class="text-sm sm:text-lg text-white/70 dark:text-gray-800 mb-8">

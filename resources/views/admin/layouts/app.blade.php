@@ -121,6 +121,23 @@
                     </div>
                 </div>
 
+                <!-- Dispatch -->
+            <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dispatchCollapse">
+                <i class="bi bi-truck me-2"></i> Dispatch
+                </button>
+            </h2>
+            <div id="dispatchCollapse" class="accordion-collapse collapse {{ request()->is('admin/dispatches*') ? 'show' : '' }}">
+                <div class="accordion-body">
+                <a href="{{ route('admin.dispatches.index') }}" class="{{ request()->routeIs('admin.dispatches.*') ? 'active' : '' }}">
+                    <i class="bi bi-list-check me-2"></i> Driver Dispatches
+                </a>
+                </div>
+            </div>
+            </div>
+
+
                
             </div>
         </div>

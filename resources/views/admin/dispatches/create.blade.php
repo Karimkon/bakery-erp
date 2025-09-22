@@ -1,0 +1,109 @@
+@extends('admin.layouts.app')
+@section('title', 'New Dispatch')
+
+@section('content')
+<h4 class="mb-3"><i class="bi bi-truck me-2"></i> New Driver Dispatch</h4>
+
+<form method="POST" action="{{ route('admin.dispatches.store') }}">
+    @csrf
+
+    <div class="row g-3">
+        <!-- Driver -->
+        <div class="col-md-4">
+            <label class="form-label">Driver</label>
+           <select id="driver_id" name="driver_id" class="form-select" required>
+                <option value="">-- Select Driver --</option>
+                @foreach($drivers as $driver)
+                    <option value="{{ $driver->id }}">{{ $driver->name }}</option>
+                @endforeach
+            </select>
+
+            @error('driver_id')<small class="text-danger">{{ $message }}</small>@enderror
+        </div>
+
+        <!-- Date -->
+        <div class="col-md-4">
+            <label class="form-label">Date</label>
+            <input type="date" name="dispatch_date" class="form-control"
+                   value="{{ old('dispatch_date', now()->toDateString()) }}" required>
+            @error('dispatch_date')<small class="text-danger">{{ $message }}</small>@enderror
+        </div>
+
+        <!-- Notes -->
+        <div class="col-md-12">
+            <label class="form-label">Notes (optional)</label>
+            <textarea name="notes" class="form-control" rows="2">{{ old('notes') }}</textarea>
+        </div>
+    </div>
+
+    <hr class="my-4">
+
+    <h5 class="mb-3"><i class="bi bi-basket2 me-1"></i> Items</h5>
+    <p class="text-muted small">
+        Opening stock will be auto-calculated from the previous dispatch for this driver (yesterday’s remaining).
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead>
+<tr>
+    <th>Product</th>
+    <th>Opening</th>
+    <th>Dispatched</th>
+    <th>Sold (Cash)</th>
+    <th>Sold (Credit)</th>
+</tr>
+</thead>
+<tbody>
+@foreach($products as $product => $price)
+<tr>
+    <td>
+        {{ ucfirst(str_replace('_',' ', $product)) }}
+        <div class="text-muted small">UGX {{ number_format($price) }}</div>
+    </td>
+    <td class="opening-stock">0</td> <!-- will auto-update -->
+    <td><input type="number" class="form-control"
+               name="items[{{ $product }}][dispatched_qty]"></td>
+    <td><input type="number" class="form-control"
+               name="items[{{ $product }}][sold_cash]"></td>
+    <td><input type="number" class="form-control"
+               name="items[{{ $product }}][sold_credit]"></td>
+</tr>
+@endforeach
+</tbody>
+
+        </table>
+    </div>
+
+    <button class="btn btn-success mt-3">
+        <i class="bi bi-save"></i> Save Dispatch
+    </button>
+</form>
+@endsection
+@push('scripts')
+<!-- jQuery (required for Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
+<script>
+$(function(){
+    $('#driver_id').select2({ placeholder: 'Search driver' });
+
+    $('#driver_id, input[name="dispatch_date"]').on('change', function(){
+        let driverId = $('#driver_id').val();
+        let date = $('input[name="dispatch_date"]').val();
+        if(driverId && date){
+            $.get("{{ url('admin/dispatches/openings') }}/" + driverId + "/" + date, function(data){
+                for (const [product, qty] of Object.entries(data)) {
+                    $('input[name="items['+product+'][dispatched_qty]"]').closest('tr')
+                      .find('.opening-stock').text(qty);
+                }
+            });
+        }
+    });
+});
+</script>
+@endpush

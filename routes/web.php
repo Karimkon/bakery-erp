@@ -101,8 +101,9 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
     Route::resource('ingredients', \App\Http\Controllers\Admin\IngredientController::class);
-
-
+    Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
+    Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
+    ->name('admin.dispatches.openings');
 });
 
 Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(function () {

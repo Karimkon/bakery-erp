@@ -13,14 +13,18 @@
         <input type="email" name="email" class="form-control" required>
     </div>
     <div class="mb-3">
-        <label>Role</label>
-        <select name="role" class="form-select">
-            <option value="admin">Admin</option>
-            <option value="chef">Chef</option>
-            <option value="sales">Sales</option>
-            <option value="finance">Finance</option>
-        </select>
-    </div>
+    <label>Role</label>
+    <select name="role" class="form-select" required>
+        <option value="">-- Select Role --</option>
+        <option value="admin" {{ old('role')=='admin' ? 'selected' : '' }}>Admin</option>
+        <option value="chef" {{ old('role')=='chef' ? 'selected' : '' }}>Chef</option>
+        <option value="sales" {{ old('role')=='sales' ? 'selected' : '' }}>Sales</option>
+        <option value="finance" {{ old('role')=='finance' ? 'selected' : '' }}>Finance</option>
+        <option value="driver" {{ old('role')=='driver' ? 'selected' : '' }}>Driver</option>
+    </select>
+    @error('role')<small class="text-danger">{{ $message }}</small>@enderror
+</div>
+
     <div class="mb-3">
         <label>Password</label>
         <input type="password" name="password" class="form-control" required>
