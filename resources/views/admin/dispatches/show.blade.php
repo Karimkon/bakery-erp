@@ -25,6 +25,13 @@
         <p class="mb-0">
             <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
             <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }}
+
+            <p class="mb-0">
+                <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
+                <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }} &nbsp;|&nbsp;
+                <strong>Total Commission:</strong> UGX {{ number_format($dispatch->commission_total, 0) }}
+            </p>
+
         </p>
     </div>
 </div>
@@ -42,6 +49,7 @@
             <th>Remaining</th>
             <th>Unit Price</th>
             <th>Line Total</th>
+            <th>Commission</th>
         </tr>
     </thead>
     <tbody>
@@ -68,10 +76,14 @@
                 <td>{{ number_format($it->remaining_qty) }}</td>
                 <td>{{ number_format($it->unit_price, 0) }}</td>
                 <td>{{ number_format($it->line_total, 0) }}</td>
+                <td>{{ number_format($it->commission, 0) }}</td>
             </tr>
         @endforeach
     </tbody>
     <tfoot>
+        @php
+            $sumCommission = $dispatch->items->sum('commission');
+        @endphp
         <tr class="table-light">
             <th>Totals</th>
             <th>{{ number_format($sumOpening) }}</th>
@@ -82,6 +94,7 @@
             <th>{{ number_format($sumRemaining) }}</th>
             <th></th>
             <th>{{ number_format($sumTotal, 0) }}</th>
+            <th>{{ number_format($sumCommission, 0) }}</th>
         </tr>
     </tfoot>
 </table>

@@ -12,6 +12,7 @@ class DispatchItem extends Model
         'sold_cash', 'sold_credit',
         'sold_qty', 'remaining_qty',
         'unit_price', 'line_total',
+        'commission',
     ];
 
     public function dispatch()

@@ -11,13 +11,12 @@
         <!-- Driver -->
         <div class="col-md-4">
             <label class="form-label">Driver</label>
-           <select id="driver_id" name="driver_id" class="form-select" required>
+            <select id="driver_id" name="driver_id" class="form-select select2" required>
                 <option value="">-- Select Driver --</option>
                 @foreach($drivers as $driver)
                     <option value="{{ $driver->id }}">{{ $driver->name }}</option>
                 @endforeach
             </select>
-
             @error('driver_id')<small class="text-danger">{{ $message }}</small>@enderror
         </div>
 
@@ -45,33 +44,38 @@
 
     <div class="table-responsive">
         <table class="table table-sm table-bordered align-middle">
-            <thead>
-<tr>
-    <th>Product</th>
-    <th>Opening</th>
-    <th>Dispatched</th>
-    <th>Sold (Cash)</th>
-    <th>Sold (Credit)</th>
-</tr>
-</thead>
-<tbody>
-@foreach($products as $product => $price)
-<tr>
-    <td>
-        {{ ucfirst(str_replace('_',' ', $product)) }}
-        <div class="text-muted small">UGX {{ number_format($price) }}</div>
-    </td>
-    <td class="opening-stock">0</td> <!-- will auto-update -->
-    <td><input type="number" class="form-control"
-               name="items[{{ $product }}][dispatched_qty]"></td>
-    <td><input type="number" class="form-control"
-               name="items[{{ $product }}][sold_cash]"></td>
-    <td><input type="number" class="form-control"
-               name="items[{{ $product }}][sold_credit]"></td>
-</tr>
-@endforeach
-</tbody>
-
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th>Opening</th>
+                    <th>Dispatched</th>
+                    <th>Sold (Cash)</th>
+                    <th>Sold (Credit)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($products as $product => $price)
+                <tr>
+                    <td>
+                        {{ ucfirst(str_replace('_',' ', $product)) }}
+                        <div class="text-muted small">UGX {{ number_format($price) }}</div>
+                    </td>
+                    <td class="opening-stock">0</td> <!-- will auto-update -->
+                    <td>
+                        <input type="number" class="form-control"
+                               name="items[{{ $product }}][dispatched_qty]" min="0">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control"
+                               name="items[{{ $product }}][sold_cash]" min="0">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control"
+                               name="items[{{ $product }}][sold_credit]" min="0">
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
         </table>
     </div>
 
@@ -80,30 +84,34 @@
     </button>
 </form>
 @endsection
+
 @push('scripts')
-<!-- jQuery (required for Select2) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Select2 -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
 <script>
-$(function(){
-    $('#driver_id').select2({ placeholder: 'Search driver' });
+$(document).ready(function () {
+    // enable select2 search
+    $(document).ready(function () {
+    $('.select2').select2({ placeholder: 'Search driver' });
 
-    $('#driver_id, input[name="dispatch_date"]').on('change', function(){
+    $('#driver_id, input[name="dispatch_date"]').on('change', function () {
         let driverId = $('#driver_id').val();
         let date = $('input[name="dispatch_date"]').val();
-        if(driverId && date){
-            $.get("{{ url('admin/dispatches/openings') }}/" + driverId + "/" + date, function(data){
-                for (const [product, qty] of Object.entries(data)) {
-                    $('input[name="items['+product+'][dispatched_qty]"]').closest('tr')
-                      .find('.opening-stock').text(qty);
+
+        if (driverId && date) {
+            $.get("{{ url('admin/dispatches/openings') }}/" + driverId + "/" + date, function (data) {
+                if (data.success) {
+                    for (const [product, qty] of Object.entries(data.openings)) {
+                        $('tr').has('input[name="items[' + product + '][dispatched_qty]"]')
+                               .find('.opening-stock').text(qty);
+                    }
+                } else {
+                    alert(data.error || 'Failed to load opening stock');
                 }
             });
         }
     });
+});
+
 });
 </script>
 @endpush

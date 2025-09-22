@@ -87,14 +87,18 @@ class DispatchController extends Controller
                 'line_total'     => $lineTotal,
             ];
         }
+        // ✅ compute commissions once, after building all lines
+        $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
 
-        DB::transaction(function () use ($request, $lines, $totalItemsSold, $totalSalesValue) {
+
+        DB::transaction(function () use ($request, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal) {
             $dispatch = Dispatch::create([
                 'driver_id'         => $request->driver_id,
                 'dispatch_date'     => $request->dispatch_date,
                 'notes'             => $request->notes,
                 'total_items_sold'  => $totalItemsSold,
                 'total_sales_value' => $totalSalesValue,
+                'commission_total'  => $commissionTotal,  
             ]);
 
             foreach ($lines as $row) {
@@ -207,14 +211,18 @@ public function update(Request $request, Dispatch $dispatch)
         ];
     }
 
-    DB::transaction(function () use ($request, $dispatch, $lines, $totalItemsSold, $totalSalesValue) {
+    $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
+
+    DB::transaction(function () use ($request, $dispatch, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal) {
         $dispatch->update([
             'driver_id'         => $request->driver_id,
             'dispatch_date'     => $request->dispatch_date,
             'notes'             => $request->notes,
             'total_items_sold'  => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
+            'commission_total'  => $commissionTotal,
         ]);
+
 
         // delete old rows and replace with updated
         $dispatch->items()->delete();
@@ -231,12 +239,65 @@ public function update(Request $request, Dispatch $dispatch)
     public function openings(User $driver, $date)
     {
         if ($driver->role !== 'driver') {
-            return response()->json(['error' => 'Invalid driver'], 422);
+            return response()->json(['success' => false, 'error' => 'Invalid driver'], 422);
         }
 
         $openings = $this->computeOpenings($driver->id, $date);
-        return response()->json($openings);
+
+        return response()->json([
+            'success'  => true,
+            'openings' => $openings
+        ]);
     }
 
+
+    protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float
+{
+    // fallbacks so it never crashes if config is missing
+    $rates = config('commissions.rates', [
+        'big_breads'     => 200,
+        'small_breads'   => 100,
+        'buns'           => 200,
+        'donuts'         => 100,
+        'half_cakes'     => 100,
+        'block_cakes'    => 200,
+        'slab_cakes'     => 200,
+        'birthday_cakes' => 200,
+    ]);
+    $threshold = (float) config('commissions.threshold', 1_000_000);
+    $basis     = config('commissions.threshold_basis', 'available'); // available|dispatched|sold
+
+    // 1) compute basis value (UGX)
+    $basisValue = 0.0;
+    foreach ($lines as $row) {
+        $unit = (float) $row['unit_price'];
+        $opening    = (int) ($row['opening_stock'] ?? 0);
+        $dispatched = (int) ($row['dispatched_qty'] ?? 0);
+        $sold       = (int) ($row['sold_qty'] ?? 0);
+
+        $qtyForBasis = match ($basis) {
+            'dispatched' => $dispatched,
+            'sold'       => $sold,
+            default      => $opening + $dispatched, // 'available'
+        };
+
+        $basisValue += $qtyForBasis * $unit;
+    }
+
+    // 2) decide full vs half rate
+    $multiplier = ($basisValue >= $threshold) ? 1.0 : 0.5;
+
+    // 3) per-line commission AND return total
+    $commissionTotal = 0.0;
+    foreach ($lines as &$row) {
+        $rate = (float) ($rates[$row['product']] ?? 0);
+        $perPiece = $rate * $multiplier;
+        $row['commission'] = round($row['sold_qty'] * $perPiece, 2);
+        $commissionTotal  += $row['commission'];
+    }
+    unset($row);
+
+    return round($commissionTotal, 2);
+}
 
 }
