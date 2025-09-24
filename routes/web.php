@@ -9,6 +9,11 @@ use App\Http\Controllers\Chef\DashboardController as ChefDashboardController;
 use App\Http\Controllers\Sales\DashboardController as SalesDashboardController;
 use App\Http\Controllers\Finance\DashboardController as FinanceDashboardController;
 
+use App\Http\Controllers\Sales\SaleController;
+use App\Http\Controllers\Sales\BankingController;
+use App\Http\Controllers\Sales\ShopStockController;
+
+
 // Home
 Route::get('/', fn () => view('welcome'));
 
@@ -104,6 +109,21 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
     Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
     ->name('admin.dispatches.openings');
+
+    // 🟦 NEW: Shop Dispatch (Kampala Main Shop)
+    Route::resource('shop-dispatch', \App\Http\Controllers\Admin\ShopDispatchController::class)
+        ->except(['show']); 
+
+    // 🟦 NEW: Reporting route for shop sales/stock
+    Route::get('shop-report', [\App\Http\Controllers\Admin\ShopReportController::class,'index'])->name('shop.report');
+
+    Route::get('bankings', [\App\Http\Controllers\Admin\BankingController::class, 'index'])
+        ->name('bankings.index');
+
+    Route::post('/dispatches/{dispatch}/mark-received', 
+    [\App\Http\Controllers\Admin\DispatchController::class, 'markReceived'])->name('dispatches.markReceived');
+
+
     
 });
 
@@ -115,10 +135,17 @@ Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(fu
 
 Route::middleware(['auth','role:sales'])->prefix('sales')->name('sales.')->group(function () {
     Route::get('/dashboard', [SalesDashboardController::class,'index'])->name('dashboard');
+    
+    Route::resource('sales', SaleController::class)->only(['index','create','store','edit','update','destroy','show']);
+    Route::resource('bankings', BankingController::class)->only(['index','create','store','edit','update','destroy','show']);
+    Route::get('stock', [ShopStockController::class,'index'])->name('stock.index');
 });
 
 Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')->group(function () {
     Route::get('/dashboard', [FinanceDashboardController::class,'index'])->name('dashboard');
+    Route::resource('expenses', App\Http\Controllers\Finance\ExpenseController::class);
+    Route::resource('deposits', App\Http\Controllers\Finance\BankDepositController::class);
+
 });
 
 // ----------------------

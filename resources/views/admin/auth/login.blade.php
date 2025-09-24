@@ -29,7 +29,7 @@
 <div class="d-flex align-items-center justify-content-center vh-100 px-3">
     <div class="login-container">
         <div class="text-center mb-4">
-            <img src="{{ asset('images/bakery.png') }}" alt="Bakery ERP Logo" class="login-logo mb-2">
+            <img src="{{ asset('images/bakerylogo.jpg') }}" alt="Bakery ERP Logo" class="login-logo mb-2">
             <h4 class="login-title">Administrator Login</h4>
         </div>
 

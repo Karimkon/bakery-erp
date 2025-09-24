@@ -2,41 +2,96 @@
 @section('title','Admin Dashboard')
 
 @section('content')
-<h3 class="mb-4"><i class="bi bi-speedometer2 me-2"></i> Bakery Admin Dashboard</h3>
+<h3 class="mb-4 fw-bold"><i class="bi bi-speedometer2 me-2"></i> Bakery Admin Dashboard</h3>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm">
-            <h6>Total Productions</h6>
-            <h3>{{ $totalProductions }}</h3>
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase small mb-2">Total Productions</h6>
+                    <h3 class="fw-bold">{{ $totalProductions }}</h3>
+                </div>
+                <div class="icon-circle bg-primary text-white">
+                    <i class="bi bi-journal-text"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm">
-            <h6>Today’s Records</h6>
-            <h3>{{ $todayProductions }}</h3>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase small mb-2">Today’s Records</h6>
+                    <h3 class="fw-bold">{{ $todayProductions }}</h3>
+                </div>
+                <div class="icon-circle bg-success text-white">
+                    <i class="bi bi-calendar-day"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm">
-            <h6>Total Value (UGX)</h6>
-            <h3>{{ number_format($totalValue) }}</h3>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase small mb-2">Total Value (UGX)</h6>
+                    <h3 class="fw-bold">{{ number_format($totalValue) }}</h3>
+                </div>
+                <div class="icon-circle bg-warning text-white">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm">
-            <h6>Variances</h6>
-            <h3 class="text-danger">{{ $varianceCount }}</h3>
+
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase small mb-2">Variances</h6>
+                    <h3 class="fw-bold text-danger">{{ $varianceCount }}</h3>
+                </div>
+                <div class="icon-circle bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Chart -->
+<!-- Chart Card -->
 <div class="card shadow-sm p-3">
-    <h5>Last 7 Days Production Value</h5>
-    <canvas id="productionChart" height="100"></canvas>
+    <h5 class="mb-3">Last 7 Days Production Value</h5>
+    <canvas id="productionChart" height="120"></canvas>
 </div>
 
+<!-- Styles -->
+<style>
+.dashboard-card {
+    border-radius: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+.icon-circle {
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 1.3rem;
+}
+@media(max-width:768px){
+    .dashboard-card { padding: 20px 16px; }
+    h3 { font-size: 1.5rem; }
+}
+</style>
+
+<!-- Chart JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const ctx = document.getElementById('productionChart').getContext('2d');
@@ -48,10 +103,21 @@ new Chart(ctx, {
             label: 'Total Value (UGX)',
             data: {!! json_encode($chartData->values()) !!},
             borderColor: '#0d6efd',
-            backgroundColor: 'rgba(13,110,253,0.2)',
+            backgroundColor: 'rgba(13,110,253,0.15)',
             tension: 0.3,
-            fill: true
+            fill: true,
+            pointBackgroundColor: '#0d6efd',
+            pointBorderColor: '#fff',
+            pointHoverRadius: 6
         }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { grid: { drawBorder: false } }
+        }
     }
 });
 </script>

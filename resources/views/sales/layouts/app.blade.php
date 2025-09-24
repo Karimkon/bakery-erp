@@ -1,27 +1,59 @@
+{{-- resources/views/sales/layouts/app.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title','Sales Dashboard - Bakery ERP')</title>
+    <title>@yield('title','Sales') - Bakery ERP</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {{-- Bootstrap 5 & Icons --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
     <style>
-        .sidebar { width:220px; background:#fd7e14; min-height:100vh; }
-        .sidebar a { color:#fff; display:block; padding:.75rem 1rem; text-decoration:none; }
-        .sidebar a:hover { background:#e8590c; }
+        body{ background:#f8fafc; }
+        .pos-card{ cursor:pointer; transition:.15s; }
+        .pos-card:hover{ transform:translateY(-2px); box-shadow:0 .5rem 1rem rgba(0,0,0,.08)!important; }
+        .stat{ font-weight:600; }
+        .sidebar{ min-height:100vh; }
+        @media (max-width: 991.98px) { .sidebar{ min-height:auto; } }
     </style>
+    @stack('head')
 </head>
 <body>
-<div class="d-flex">
-    <div class="sidebar p-3">
-        <h4 class="text-white">Sales</h4>
-        <a href="{{ route('sales.dashboard') }}"><i class="bi bi-bar-chart-line me-2"></i> Dashboard</a>
-        <form method="POST" action="{{ route('logout') }}" class="mt-3">@csrf
-            <button class="btn btn-dark w-100"><i class="bi bi-box-arrow-left"></i> Logout</button>
-        </form>
+<div class="container-fluid">
+    <div class="row">
+        {{-- Sidebar --}}
+        <aside class="col-12 col-lg-2 bg-white border-end sidebar p-3">
+            <h5 class="mb-4">Sales</h5>
+            <div class="list-group">
+                <a class="list-group-item list-group-item-action" href="{{ route('sales.sales.index') }}">
+                    <i class="bi bi-cash-coin me-2"></i>Shop Sales
+                </a>
+                <a class="list-group-item list-group-item-action" href="{{ route('sales.sales.create') }}">
+                    <i class="bi bi-bag-plus me-2"></i>New Sale (POS)
+                </a>
+                <a class="list-group-item list-group-item-action" href="{{ route('sales.stock.index') }}">
+                    <i class="bi bi-box-seam me-2"></i>Shop Stock
+                </a>
+                <a class="list-group-item list-group-item-action" href="{{ route('sales.bankings.index') }}">
+                    <i class="bi bi-bank me-2"></i>Bankings
+                </a>
+                <a class="list-group-item list-group-item-action" href="{{ route('sales.bankings.create') }}">
+                    <i class="bi bi-receipt-cutoff me-2"></i>Record Banking
+                </a>
+            </div>
+        </aside>
+
+        {{-- Main --}}
+        <main class="col-12 col-lg-10 p-3 p-lg-4">
+            @includeWhen(session('success') || session('error') || $errors->any(), 'sales.partials.flash')
+            @yield('content')
+        </main>
     </div>
-    <div class="flex-fill p-4">@yield('content')</div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+@stack('scripts')
 </body>
 </html>

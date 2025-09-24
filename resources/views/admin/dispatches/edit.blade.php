@@ -66,29 +66,46 @@
                     $commission = $row?->commission ?? 0;
                 @endphp
                 <tr data-product="{{ $product }}">
-                    <td>
-                        {{ ucfirst(str_replace('_',' ',$product)) }}
-                        <div class="text-muted small">UGX {{ number_format($price) }}</div>
-                    </td>
-                    <td class="opening-stock">{{ $opening }}</td>
-                    <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][dispatched_qty]"
-                               value="{{ old("items.$product.dispatched_qty", $dispatched ?: '') }}">
-                    </td>
-                    <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][sold_cash]"
-                               value="{{ old("items.$product.sold_cash", $soldCash ?: '') }}">
-                    </td>
-                    <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][sold_credit]"
-                               value="{{ old("items.$product.sold_credit", $soldCredit ?: '') }}">
-                    </td>
-                    <td class="remaining-col">{{ $remaining }}</td>
-                    <td class="commission-col">{{ number_format($commission,0) }}</td>
-                </tr>
+    <td>
+        {{ ucfirst(str_replace('_',' ',$product)) }}
+        <div class="text-muted small">UGX {{ number_format($price) }}</div>
+    </td>
+
+    <!-- Opening Stock (readonly input so it's visible + stored) -->
+    <td>
+        <input type="number" class="form-control opening-stock"
+               name="items[{{ $product }}][opening_stock]"
+               value="{{ old("items.$product.opening_stock", $opening) }}" readonly>
+    </td>
+
+    <!-- Dispatched -->
+    <td>
+        <input type="number" class="form-control"
+               name="items[{{ $product }}][dispatched_qty]"
+               value="{{ old("items.$product.dispatched_qty", $dispatched) }}">
+    </td>
+
+    <!-- Sold (Cash) -->
+    <td>
+        <input type="number" class="form-control"
+               name="items[{{ $product }}][sold_cash]"
+               value="{{ old("items.$product.sold_cash", $soldCash) }}">
+    </td>
+
+    <!-- Sold (Credit) -->
+    <td>
+        <input type="number" class="form-control"
+               name="items[{{ $product }}][sold_credit]"
+               value="{{ old("items.$product.sold_credit", $soldCredit) }}">
+    </td>
+
+    <!-- Remaining -->
+    <td class="remaining-col">{{ $remaining }}</td>
+
+    <!-- Commission -->
+    <td class="commission-col">{{ number_format($commission,0) }}</td>
+</tr>
+
                 @endforeach
             </tbody>
         </table>
