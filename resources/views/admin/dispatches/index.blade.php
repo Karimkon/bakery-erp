@@ -21,6 +21,8 @@
             <th>Driver</th>
             <th>Items Sold</th>
             <th>Total Sales (UGX)</th>
+             <th>Cash Received (UGX)</th>
+            <th>Balance Due (UGX)</th>
             <th>Action</th>
         </tr>
     </thead>
@@ -31,6 +33,8 @@
             <td>{{ $d->driver?->name }}</td>
             <td>{{ number_format($d->total_items_sold) }}</td>
             <td>{{ number_format($d->total_sales_value, 0) }}</td>
+            <td>{{ number_format($d->cash_received, 0) }}</td>
+            <td>{{ number_format($d->balance_due, 0) }}</td>
             <td class="d-flex gap-2">
                 <a href="{{ route('admin.dispatches.show',$d->id) }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-eye"></i> View

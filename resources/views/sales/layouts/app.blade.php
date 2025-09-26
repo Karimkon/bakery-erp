@@ -42,7 +42,18 @@
                 <a class="list-group-item list-group-item-action" href="{{ route('sales.bankings.create') }}">
                     <i class="bi bi-receipt-cutoff me-2"></i>Record Banking
                 </a>
+                
             </div>
+            <br>
+            <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit" class="logout-button">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </form>
+    </div>
         </aside>
 
         {{-- Main --}}

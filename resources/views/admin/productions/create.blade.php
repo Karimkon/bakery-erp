@@ -4,6 +4,16 @@
 @section('content')
 <h4><i class="bi bi-journal-plus me-2"></i> New Production Record</h4>
 
+@if ($errors->any())
+<div class="alert alert-danger">
+    <ul class="mb-0">
+        @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+</div>
+@endif
+
 <form method="POST" action="{{ route('admin.productions.store') }}">
     @csrf
 
@@ -20,6 +30,12 @@
         <label class="form-label">Production Date</label>
         <input type="date" name="production_date" class="form-control" required>
     </div>
+
+    <div class="mb-3">
+        <label class="form-label">Flour (bags)</label>
+        <input type="number" step="0.01" name="flour_bags" class="form-control" required>
+    </div>
+
 
     <!-- Products -->
     <h5 class="mt-4">Products</h5>

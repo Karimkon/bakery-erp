@@ -13,11 +13,6 @@ class DashboardController extends Controller
         // Totals
         $totalSales    = Dispatch::sum('total_sales_value');
         $totalComm     = Dispatch::sum('commission_total');
-        $totalNet      = Dispatch::sum('net_handover');
-
-        // Breakdown by clearance
-        $received      = Dispatch::where('handover_received', true)->sum('net_handover');
-        $outstanding   = Dispatch::where('handover_received', false)->sum('net_handover');
 
         // Expenses
         $totalExpenses = Expense::sum('amount');
@@ -25,9 +20,6 @@ class DashboardController extends Controller
         return view('finance.dashboard', compact(
             'totalSales',
             'totalComm',
-            'totalNet',
-            'received',
-            'outstanding',
             'totalExpenses'
         ));
     }

@@ -34,10 +34,18 @@ Route::post('/admin/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember')) && Auth::user()->role === 'admin') {
-        $request->session()->regenerate();
-        return redirect()->intended(route('admin.dashboard'));
-    }
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'admin',       // force admin here
+    ], $request->boolean('remember'))) {
+
+    $request->session()->regenerate();
+    return redirect()->intended(route('admin.dashboard'));
+}
+
+return back()->with('error', 'Only admins can login here.');
+
 
     Auth::logout();
     return redirect()->route('admin.login')->with('error','Only admins can login here.');
@@ -49,10 +57,18 @@ Route::post('/chef/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember')) && Auth::user()->role === 'chef') {
-        $request->session()->regenerate();
-        return redirect()->intended(route('chef.dashboard'));
-    }
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'chef',       // force chef here
+    ], $request->boolean('remember'))) {
+
+    $request->session()->regenerate();
+    return redirect()->intended(route('chef.dashboard'));
+}
+
+return back()->with('error', 'Only admins can login here.');
+
 
     Auth::logout();
     return redirect()->route('chef.login')->with('error','Only chefs can login here.');
@@ -64,10 +80,18 @@ Route::post('/sales/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember')) && Auth::user()->role === 'sales') {
-        $request->session()->regenerate();
-        return redirect()->intended(route('sales.dashboard'));
-    }
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'sales',       // force sales here
+    ], $request->boolean('remember'))) {
+
+    $request->session()->regenerate();
+    return redirect()->intended(route('sales.dashboard'));
+}
+
+return back()->with('error', 'Only admins can login here.');
+
 
     Auth::logout();
     return redirect()->route('sales.login')->with('error','Only sales staff can login here.');
@@ -79,10 +103,18 @@ Route::post('/finance/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember')) && Auth::user()->role === 'finance') {
-        $request->session()->regenerate();
-        return redirect()->intended(route('finance.dashboard'));
-    }
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'finance',       // force finance here
+    ], $request->boolean('remember'))) {
+
+    $request->session()->regenerate();
+    return redirect()->intended(route('finance.dashboard'));
+}
+
+return back()->with('error', 'Only admins can login here.');
+
 
     Auth::logout();
     return redirect()->route('finance.login')->with('error','Only finance staff can login here.');
@@ -107,8 +139,9 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
     Route::resource('ingredients', \App\Http\Controllers\Admin\IngredientController::class);
     Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
-    Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
-    ->name('admin.dispatches.openings');
+    Route::get('dispatches/openings/{driver}/{date}', [DispatchController::class, 'openings'])
+    ->name('dispatches.openings');
+
 
     // 🟦 NEW: Shop Dispatch (Kampala Main Shop)
     Route::resource('shop-dispatch', \App\Http\Controllers\Admin\ShopDispatchController::class)

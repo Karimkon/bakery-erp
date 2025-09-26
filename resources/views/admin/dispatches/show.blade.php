@@ -22,17 +22,11 @@
         @if($dispatch->notes)
             <p><strong>Notes:</strong> {{ $dispatch->notes }}</p>
         @endif
-        <p class="mb-0">
-            <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
-            <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }}
-
             <p class="mb-0">
                 <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
                 <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }} &nbsp;|&nbsp;
                 <strong>Total Commission:</strong> UGX {{ number_format($dispatch->commission_total, 0) }}
             </p>
-
-        </p>
     </div>
 </div>
 
@@ -95,6 +89,11 @@
             <th></th>
             <th>{{ number_format($sumTotal, 0) }}</th>
             <th>{{ number_format($sumCommission, 0) }}</th>
+            <p>
+    <strong>Cash Received:</strong> UGX {{ number_format($dispatch->cash_received, 0) }} <br>
+    <strong>Balance Due:</strong> UGX {{ number_format($dispatch->balance_due, 0) }}
+</p>
+
         </tr>
     </tfoot>
 </table>

@@ -11,14 +11,21 @@ use Illuminate\Support\Facades\DB;
 
 class DispatchController extends Controller
 {
+ 
     public function index()
-    {
-        $dispatches = Dispatch::with('driver')
-            ->latest('dispatch_date')
-            ->paginate(20);
+{
+    $dispatches = Dispatch::with('driver', 'items')->latest('dispatch_date')->paginate(20);
 
-        return view('admin.dispatches.index', compact('dispatches'));
-    }
+    // Transform EACH item in the current page
+    foreach ($dispatches as $d) {
+    $d->total_sales_value = $d->items->sum(fn($i) => $i->sold_qty * $i->unit_price);
+    $d->cash_received     = $d->items->sum(fn($i) => $i->sold_cash * $i->unit_price);
+    $d->balance_due       = $d->total_sales_value - $d->cash_received;
+}
+
+    return view('admin.dispatches.index', compact('dispatches'));
+}
+
 
     public function create()
     {
@@ -53,6 +60,7 @@ class DispatchController extends Controller
         $lines = [];
         $totalItemsSold = 0;
         $totalSalesValue = 0.0;
+        $cashReceived = 0.0;
 
         foreach ($products as $product => $price) {
             $dispatched  = (int) data_get($request->items, "$product.dispatched_qty", 0);
@@ -72,6 +80,9 @@ class DispatchController extends Controller
             $unitPrice = (float) $price;
             $lineTotal = $sold * $unitPrice;
 
+            // 💡 here: only cash sales count as "cash received"
+            $cashReceived += $soldCash * $unitPrice;
+
             $totalItemsSold  += $sold;
             $totalSalesValue += $lineTotal;
 
@@ -87,19 +98,25 @@ class DispatchController extends Controller
                 'line_total'     => $lineTotal,
             ];
         }
+
+        $balanceDue = $totalSalesValue - $cashReceived;
+
         // ✅ compute commissions once, after building all lines
         $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
 
 
-        DB::transaction(function () use ($request, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal) {
-            $dispatch = Dispatch::create([
-                'driver_id'         => $request->driver_id,
-                'dispatch_date'     => $request->dispatch_date,
-                'notes'             => $request->notes,
-                'total_items_sold'  => $totalItemsSold,
-                'total_sales_value' => $totalSalesValue,
-                'commission_total'  => $commissionTotal,  
-            ]);
+        DB::transaction(function () use ($request, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal, $cashReceived, $balanceDue) {
+        $dispatch = Dispatch::create([
+            'driver_id'         => $request->driver_id,
+            'dispatch_date'     => $request->dispatch_date,
+            'notes'             => $request->notes,
+            'total_items_sold'  => $totalItemsSold,
+            'total_sales_value' => $totalSalesValue,
+            'commission_total'  => $commissionTotal,
+            'cash_received'     => $cashReceived,
+            'balance_due'       => $balanceDue,
+        ]);
+
 
             foreach ($lines as $row) {
                 $row['dispatch_id'] = $dispatch->id;
@@ -176,6 +193,7 @@ public function update(Request $request, Dispatch $dispatch)
     $lines = [];
     $totalItemsSold = 0;
     $totalSalesValue = 0.0;
+    $cashReceived = 0.0;
 
     foreach ($products as $product => $price) {
         $opening    = (int) data_get($request->items, "$product.opening_stock", 0);
@@ -194,6 +212,7 @@ public function update(Request $request, Dispatch $dispatch)
         $remaining = $available - $sold;
         $unitPrice = (float) $price;
         $lineTotal = $sold * $unitPrice;
+        $cashReceived += $soldCash * $unitPrice;
 
         $totalItemsSold  += $sold;
         $totalSalesValue += $lineTotal;
@@ -210,10 +229,11 @@ public function update(Request $request, Dispatch $dispatch)
             'line_total'     => $lineTotal,
         ];
     }
+    $balanceDue = $totalSalesValue - $cashReceived;
 
     $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
 
-    DB::transaction(function () use ($request, $dispatch, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal) {
+    DB::transaction(function () use ($request, $dispatch, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal, $cashReceived, $balanceDue) {
         $dispatch->update([
             'driver_id'         => $request->driver_id,
             'dispatch_date'     => $request->dispatch_date,
@@ -221,7 +241,10 @@ public function update(Request $request, Dispatch $dispatch)
             'total_items_sold'  => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
             'commission_total'  => $commissionTotal,
+            'cash_received'     => $cashReceived,
+            'balance_due'       => $balanceDue,
         ]);
+
 
 
         // delete old rows and replace with updated
@@ -236,19 +259,22 @@ public function update(Request $request, Dispatch $dispatch)
         ->with('success','Dispatch updated successfully.');
 }
 
-    public function openings(User $driver, $date)
-    {
-        if ($driver->role !== 'driver') {
-            return response()->json(['success' => false, 'error' => 'Invalid driver'], 422);
-        }
-
-        $openings = $this->computeOpenings($driver->id, $date);
-
-        return response()->json([
-            'success'  => true,
-            'openings' => $openings
-        ]);
+    public function openings($driverId, $date)
+{
+    $driver = User::find($driverId);
+    if (!$driver || $driver->role !== 'driver') {
+        return response()->json(['success'=>false,'error'=>'Invalid driver'],422);
     }
+
+    $openings = $this->computeOpenings($driver->id, $date);
+
+    return response()->json([
+        'success'  => true,
+        'openings' => $openings
+    ]);
+}
+
+
 
 
     protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float

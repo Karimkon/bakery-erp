@@ -54,27 +54,25 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($products as $product => $price)
-                <tr>
+               @foreach($products as $product => $price)
+                <tr data-product="{{ $product }}">
                     <td>
                         {{ ucfirst(str_replace('_',' ', $product)) }}
                         <div class="text-muted small">UGX {{ number_format($price) }}</div>
                     </td>
-                    <td class="opening-stock">0</td> <!-- will auto-update -->
+                    <td class="opening-stock">0</td>
                     <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][dispatched_qty]" min="0">
+                        <input type="number" class="form-control" name="items[{{ $product }}][dispatched_qty]" min="0">
                     </td>
                     <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][sold_cash]" min="0">
+                        <input type="number" class="form-control" name="items[{{ $product }}][sold_cash]" min="0">
                     </td>
                     <td>
-                        <input type="number" class="form-control"
-                               name="items[{{ $product }}][sold_credit]" min="0">
+                        <input type="number" class="form-control" name="items[{{ $product }}][sold_credit]" min="0">
                     </td>
                 </tr>
                 @endforeach
+
             </tbody>
         </table>
     </div>
@@ -86,32 +84,29 @@
 @endsection
 
 @push('scripts')
-
 <script>
-$(document).ready(function () {
-    // enable select2 search
-    $(document).ready(function () {
-    $('.select2').select2({ placeholder: 'Search driver' });
+let openingsUrlTemplate = "{{ url('admin/dispatches/openings/DRIVER_ID/DATE') }}";
 
-    $('#driver_id, input[name="dispatch_date"]').on('change', function () {
-        let driverId = $('#driver_id').val();
-        let date = $('input[name="dispatch_date"]').val();
+$('#driver_id, input[name="dispatch_date"]').on('change', function () {
+    let driverId = $('#driver_id').val();
+    let date = $('input[name="dispatch_date"]').val();
+    if (!driverId || !date) return;
 
-        if (driverId && date) {
-            $.get("{{ url('admin/dispatches/openings') }}/" + driverId + "/" + date, function (data) {
-                if (data.success) {
-                    for (const [product, qty] of Object.entries(data.openings)) {
-                        $('tr').has('input[name="items[' + product + '][dispatched_qty]"]')
-                               .find('.opening-stock').text(qty);
-                    }
-                } else {
-                    alert(data.error || 'Failed to load opening stock');
-                }
-            });
+    $.get("{{ route('admin.dispatches.openings', ['driver' => 'DRIVERID', 'date' => 'DATE']) }}"
+        .replace('DRIVERID', driverId)
+        .replace('DATE', date),
+        function(data){
+            if(data.success){
+                $.each(data.openings, function(product, qty){
+                    $('tr[data-product="'+product+'"]').find('.opening-stock').text(qty);
+                });
+            } else {
+                alert(data.error || 'Failed to load opening stock');
+            }
         }
-    });
+    );
 });
 
-});
 </script>
+
 @endpush
