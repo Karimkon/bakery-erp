@@ -45,6 +45,17 @@ class DispatchController extends Controller
             'items'          => ['required','array'],
         ]);
 
+        // store() — after $request->validate(...)
+        $exists = Dispatch::where('driver_id', $request->driver_id)
+                        ->where('dispatch_date', $request->dispatch_date)
+                        ->exists();
+
+        if ($exists) {
+            return back()
+                ->withErrors(['dispatch_date' => 'A dispatch for this driver on that date already exists. Edit the existing dispatch instead.'])
+                ->withInput();
+        }
+
         // verify selected user is actually a driver
         $isDriver = User::where('id', $request->driver_id)->where('role','driver')->exists();
         if (!$isDriver) {

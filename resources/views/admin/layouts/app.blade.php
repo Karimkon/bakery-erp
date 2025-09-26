@@ -9,19 +9,21 @@
 <!-- Bootstrap + Icons + Fonts -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png">
 
 <style>
 :root {
-    --primary: #D97706;        /* Warm golden-orange accent */
-    --primary-hover: #F59E0B;  /* Slightly lighter for hover */
-    --sidebar-bg: #4B342C;     /* Rich chocolate brown */
-    --sidebar-text: #F3E0D8;   /* Soft cream text */
-    --sidebar-hover: #fff;      /* White for hover */
-    --bg: #FFF8F0;             /* Light bakery background */
-    --card-bg: #FFF4E6;        /* Subtle card background */
+  --primary: #C97C5D;          /* Cinnamon / caramel */
+  --primary-hover: #DA9B7A;    /* Lighter cinnamon */
+  --sidebar-bg: #3E2C2C;       /* Dark chocolate */
+  --sidebar-text: #F5EDE6;     /* Whipped-cream text */
+  --sidebar-hover: #fff;       
+  --bg: #FFF9F6;               /* Very light cream background */
+  --card-bg: #FFF2EA;          /* Subtle card background */
 }
+
 
 body {
     font-family: 'Inter', sans-serif;
@@ -47,10 +49,36 @@ body {
     overflow-y: auto;
     box-shadow: 2px 0 15px rgba(0,0,0,0.2);
 }
+.sidebar {
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #2A1E1E 100%);
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+
+.sidebar a,
+.accordion-button {
+  border-radius: 10px;
+}
+
+.content {
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  border: none;
+}
+
+
 .sidebar-logo {
     text-align: center;
     font-weight: 700;
-    font-size: 1.4rem;
+    font-family: 'Pacifico', cursive; /* load Google font */
+    font-size: 1.6rem;
     padding: 1.5rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,0.2);
     color: var(--primary);
@@ -125,7 +153,6 @@ body {
 .content {
     margin-left: 260px;
     padding: 2rem;
-    transition: margin-left 0.3s ease;
 }
 
 /* Scrollbar */
@@ -152,6 +179,72 @@ body {
         cursor: pointer;
     }
 }
+
+/* === Make accordion links look identical to the top-level Dashboard link === */
+/* Remove bootstrap white background / borders inside the sidebar accordion */
+.sidebar .accordion .accordion-item,
+.sidebar .accordion .accordion-collapse,
+.sidebar .accordion .accordion-body {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;          /* remove extra white gaps */
+}
+
+/* Style the links inside accordion-body to match .sidebar a (Dashboard) */
+.sidebar .accordion .accordion-body > a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--sidebar-text) !important;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.3rem;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  background: transparent;
+}
+
+/* Hover / Active state — match Dashboard link */
+.sidebar .accordion .accordion-body > a:hover,
+.sidebar .accordion .accordion-body > a.active {
+  background: var(--primary) !important;
+  color: var(--sidebar-hover) !important;
+  transform: translateX(4px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Make sure the accordion header when open still matches hover style */
+.sidebar .accordion-button:not(.collapsed) {
+  background: var(--primary) !important;
+  color: var(--sidebar-hover) !important;
+  transform: translateX(3px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+}
+
+/* Icon colors inside links should inherit the text color */
+.sidebar .accordion .accordion-body > a .bi {
+  color: inherit !important;
+}
+
+/* Give all sidebar links and accordion headers consistent icon spacing */
+.sidebar a,
+.sidebar .accordion-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;            /* uniform space between icon and text */
+}
+
+/* Make sure icons inherit the text colour and don't shrink */
+.sidebar a .bi,
+.sidebar .accordion-button .bi {
+  color: inherit !important;
+  font-size: 1rem;         /* adjust icon size if needed */
+  flex-shrink: 0;          /* stops icon from squishing */
+}
+
 </style>
 </head>
 <body>
@@ -283,5 +376,7 @@ body {
     const sidebar = document.getElementById('sidebar');
     toggle.addEventListener('click', () => sidebar.classList.toggle('active'));
 </script>
+
+@stack('scripts')
 </body>
 </html>

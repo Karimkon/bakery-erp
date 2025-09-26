@@ -47,10 +47,10 @@
                 <tr>
                     <th>Product</th>
                     <th>Opening</th>
+                    <th>All Remaining items</th>
                     <th>Dispatched</th>
-                    <th>Sold (Cash)</th>
-                    <th>Sold (Credit)</th>
-                    <th>Remaining</th>
+                    <th>Qty Sold (Cash)</th>
+                    <th>Qty Sold (Credit)</th>
                     <th>Commission</th>
                 </tr>
             </thead>
@@ -78,6 +78,10 @@
                value="{{ old("items.$product.opening_stock", $opening) }}" readonly>
     </td>
 
+    
+    <!-- Remaining -->
+    <td class="remaining-col">{{ $remaining }}</td>
+
     <!-- Dispatched -->
     <td>
         <input type="number" class="form-control"
@@ -100,8 +104,6 @@
     </td>
 
 
-    <!-- Remaining -->
-    <td class="remaining-col">{{ $remaining }}</td>
 
     <!-- Commission -->
     <td class="commission-col">{{ number_format($commission,0) }}</td>

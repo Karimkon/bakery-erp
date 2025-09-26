@@ -60,7 +60,10 @@
                         {{ ucfirst(str_replace('_',' ', $product)) }}
                         <div class="text-muted small">UGX {{ number_format($price) }}</div>
                     </td>
-                    <td class="opening-stock">0</td>
+                    <td>
+                        <span class="opening-stock">0</span>
+                        <input type="hidden" name="items[{{ $product }}][opening_stock]" class="opening-stock-input" value="0">
+                    </td>
                     <td>
                         <input type="number" class="form-control" name="items[{{ $product }}][dispatched_qty]" min="0">
                     </td>
@@ -82,31 +85,91 @@
     </button>
 </form>
 @endsection
-
 @push('scripts')
 <script>
-let openingsUrlTemplate = "{{ url('admin/dispatches/openings/DRIVER_ID/DATE') }}";
+    // Check if jQuery is loaded
+if (typeof jQuery === 'undefined') {
+    console.error('jQuery is not loaded!');
+} else {
+    console.log('jQuery version:', jQuery.fn.jquery);
+}
 
-$('#driver_id, input[name="dispatch_date"]').on('change', function () {
-    let driverId = $('#driver_id').val();
-    let date = $('input[name="dispatch_date"]').val();
-    if (!driverId || !date) return;
+$(document).ready(function() {
+    console.log('Document ready - dispatch script loaded');
+    
+    // Setup CSRF token for AJAX requests
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
+    
+    // Initialize Select2
+    $('#driver_id').select2({
+        placeholder: '-- Select Driver --',
+        allowClear: true
+    });
+    
+    $('#driver_id, input[name="dispatch_date"]').on('change', function () {
+        console.log('Driver or date changed');
+        
+        let driverId = $('#driver_id').val();
+        let date = $('input[name="dispatch_date"]').val();
+        
+        console.log('Driver ID:', driverId, 'Date:', date);
+        
+        if (!driverId || !date) {
+            console.log('Missing driver ID or date');
+            return;
+        }
 
-    $.get("{{ route('admin.dispatches.openings', ['driver' => 'DRIVERID', 'date' => 'DATE']) }}"
-        .replace('DRIVERID', driverId)
-        .replace('DATE', date),
-        function(data){
-            if(data.success){
-                $.each(data.openings, function(product, qty){
-                    $('tr[data-product="'+product+'"]').find('.opening-stock').text(qty);
-                });
+        // Correct URL construction
+        let url = "{{ url('admin/dispatches/openings') }}/" + driverId + "/" + date;
+        console.log('Request URL:', url);
+
+        // Show loading
+        $('.opening-stock').text('Loading...');
+
+        $.get(url, function (data) {
+            console.log('Response received:', data);
+            
+            if (data.success) {
+                console.log('Openings data:', data.openings);
+                // Update opening stock for each product
+                for (const [product, qty] of Object.entries(data.openings)) {
+                    console.log('Setting opening for', product, 'to', qty);
+                    // Update both the display text and the hidden input
+                    const $row = $('tr[data-product="' + product + '"]');
+                    $row.find('.opening-stock').text(qty);
+                    $row.find('.opening-stock-input').val(qty);
+                }
             } else {
+                console.error('API error:', data.error);
                 alert(data.error || 'Failed to load opening stock');
             }
+        }).fail(function(xhr, status, error) {
+            console.error('AJAX error:', status, error);
+            console.log('Response text:', xhr.responseText);
+            
+            // Reset opening stock to 0 on error
+            $('.opening-stock').text('0');
+            $('.opening-stock-input').val('0');
+            
+            // Show user-friendly error message
+            if (xhr.status === 404) {
+                console.warn('Opening stock data not found - using 0 as default');
+            } else {
+                alert('Could not load opening stock data. Using 0 as default.');
+            }
+        });
+    });
+
+    $('#driver_id').on('change', function() {
+        if (!$(this).val()) {
+            $('.opening-stock').text('0');
+            $('.opening-stock-input').val('0');
         }
-    );
+    });
 });
-
 </script>
-
 @endpush
