@@ -18,10 +18,11 @@
     <thead class="table-dark">
         <tr>
             <th>Date</th>
+            <th>Dispatch #</th>
             <th>Driver</th>
             <th>Items Sold</th>
             <th>Total Sales (UGX)</th>
-             <th>Cash Received (UGX)</th>
+            <th>Cash Received (UGX)</th>
             <th>Balance Due (UGX)</th>
             <th>Action</th>
         </tr>
@@ -30,6 +31,7 @@
         @foreach($dispatches as $d)
         <tr>
             <td>{{ $d->dispatch_date->format('d M Y') }}</td>
+            <td>{{ $d->dispatch_no }}</td>
             <td>{{ $d->driver?->name }}</td>
             <td>{{ number_format($d->total_items_sold) }}</td>
             <td>{{ number_format($d->total_sales_value, 0) }}</td>

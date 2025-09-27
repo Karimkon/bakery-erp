@@ -58,10 +58,10 @@
                 @foreach($products as $product => $price)
                 @php
                     $row = $dispatch->items->firstWhere('product',$product);
-                    $opening    = $row?->opening_stock ?? 0;
-                    $dispatched = $row?->dispatched_qty ?? 0;
-                    $soldCash   = $row?->sold_cash ?? 0;
-                    $soldCredit = $row?->sold_credit ?? 0;
+                    $opening    = old("items.$product.opening_stock", $openings[$product] ?? 0);
+                    $dispatched = old("items.$product.dispatched_qty", $row?->dispatched_qty ?? 0);
+                    $soldCash   = old("items.$product.sold_cash", $row?->sold_cash ?? 0);
+                    $soldCredit = old("items.$product.sold_credit", $row?->sold_credit ?? 0);
                     $remaining  = ($opening + $dispatched) - ($soldCash + $soldCredit);
                     $commission = $row?->commission ?? 0;
                 @endphp

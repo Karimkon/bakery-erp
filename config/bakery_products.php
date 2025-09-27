@@ -1,11 +1,11 @@
 <?php
 return [
-    'buns'           => 500,
-    'small_breads'   => 1500,
-    'big_breads'     => 2500,
-    'donuts'         => 1000,
-    'half_cakes'     => 8000,
-    'block_cakes'    => 20000,
-    'slab_cakes'     => 25000,
-    'birthday_cakes' => 30000,
+    'buns'           => 2500,
+    'small_breads'   => 2500,
+    'big_breads'     => 5000,
+    'donuts'         => 2500,
+    'half_cakes'     => 2500,
+    'block_cakes'    => 5000,
+    'slab_cakes'     => 2500,
+    'birthday_cakes' => 50000,
 ];
