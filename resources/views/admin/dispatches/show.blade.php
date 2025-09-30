@@ -14,7 +14,6 @@
     </div>
 </div>
 
-
 <div class="card mb-4 shadow-sm border-start border-primary border-3">
     <div class="card-body">
         <p><strong>Date:</strong> {{ $dispatch->dispatch_date->format('d M Y') }}</p>
@@ -22,11 +21,11 @@
         @if($dispatch->notes)
             <p><strong>Notes:</strong> {{ $dispatch->notes }}</p>
         @endif
-            <p class="mb-0">
-                <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
-                <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }} &nbsp;|&nbsp;
-                <strong>Total Commission:</strong> UGX {{ number_format($dispatch->commission_total, 0) }}
-            </p>
+        <p class="mb-0">
+            <strong>Items Sold:</strong> {{ number_format($dispatch->total_items_sold) }} &nbsp;|&nbsp;
+            <strong>Total Sales:</strong> UGX {{ number_format($dispatch->total_sales_value, 0) }} &nbsp;|&nbsp;
+            <strong>Total Commission:</strong> UGX {{ number_format($dispatch->commission_total, 0) }}
+        </p>
     </div>
 </div>
 
@@ -89,13 +88,39 @@
             <th></th>
             <th>{{ number_format($sumTotal, 0) }}</th>
             <th>{{ number_format($sumCommission, 0) }}</th>
-            <p>
-    <strong>Cash Received:</strong> UGX {{ number_format($dispatch->cash_received, 0) }} <br>
-    <strong>Balance Due:</strong> UGX {{ number_format($dispatch->balance_due, 0) }}
-</p>
-
         </tr>
     </tfoot>
 </table>
+
+@php
+    $remainingInventoryValue = $dispatch->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+@endphp
+
+<div class="mt-4">
+    <h6>Balance Summary:</h6>
+    <table class="table table-sm">
+        <tr>
+            <td><strong>Total Sales Value:</strong></td>
+            <td>UGX {{ number_format($dispatch->total_sales_value, 0) }}</td>
+        </tr>
+        <tr>
+            <td><strong>Cash Received:</strong></td>
+            <td>UGX {{ number_format($dispatch->cash_received, 0) }}</td>
+        </tr>
+        <tr>
+            <td><strong>Remaining Inventory Value:</strong></td>
+            <td>UGX {{ number_format($remainingInventoryValue, 0) }}</td>
+        </tr>
+        <tr class="table-light">
+            <td><strong>Balance Due (Unsold Goods):</strong></td>
+            <td><strong>UGX {{ number_format($dispatch->balance_due, 0) }}</strong></td>
+        </tr>
+    </table>
+    
+    @if($dispatch->balance_due > 0)
+        <p class="text-warning"><small><em>Driver owes for unsold goods worth UGX {{ number_format($dispatch->balance_due, 0) }}.</em></small></p>
+    @else
+        <p class="text-success"><small><em>No unsold goods - all items were sold or returned.</em></small></p>
+    @endif
+</div>
 @endsection
- 

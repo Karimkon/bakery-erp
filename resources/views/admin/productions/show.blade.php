@@ -1,26 +1,22 @@
 @extends('admin.layouts.app')
-
 @section('title', 'Production Details')
 
 @section('content')
 <div class="container-fluid">
 
-    {{-- 🔙 Back button --}}
+    {{-- Back Button --}}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">
-            <i class="bi bi-journal-text me-2"></i> Production Details
-        </h4>
+        <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i> Production Details</h4>
         <a href="{{ route('admin.productions.index') }}" class="btn btn-secondary btn-sm">
             <i class="bi bi-arrow-left"></i> Back to Productions
         </a>
     </div>
 
-    {{-- Flash message --}}
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
-    {{-- 🧑 Chef Info --}}
+    {{-- Chef Info --}}
     <div class="card mb-4 shadow-sm border-start border-primary border-3">
         <div class="card-body">
             <h5 class="card-title mb-2">
@@ -33,7 +29,7 @@
         </div>
     </div>
 
-    {{-- 📊 Output Summary --}}
+    {{-- Output Summary --}}
     <div class="card mb-4 shadow-sm">
         <div class="card-header bg-dark text-white">
             <i class="bi bi-box-seam me-2"></i> Production Output
@@ -60,7 +56,7 @@
         </div>
     </div>
 
-    {{-- 💰 Totals & Variance --}}
+    {{-- Totals & Variance --}}
     <div class="card mb-4 shadow-sm border-start border-info border-3">
         <div class="card-body">
             <h5 class="mb-3"><i class="bi bi-cash-stack me-2"></i> Financials</h5>
@@ -77,7 +73,7 @@
         </div>
     </div>
 
-    {{-- 🥖 Ingredient Usage --}}
+    {{-- Ingredient Usage --}}
     <div class="card shadow-sm">
         <div class="card-header bg-dark text-white">
             <i class="bi bi-basket me-2"></i> Ingredients Used
@@ -100,16 +96,14 @@
                                 <td>{{ $usage->ingredient->name }}</td>
                                 <td>{{ $usage->quantity }}</td>
                                 <td>{{ $usage->unit }}</td>
-                                <td>{{ number_format($usage->cost) }}</td>
+                                <td class="text-end">{{ number_format($usage->cost) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
-                            <tr class="fw-bold">
+                            <tr class="fw-bold text-end">
                                 <td colspan="3">Total Ingredients Cost</td>
-                                <td>
-                                    UGX {{ number_format($production->ingredientUsages->sum('cost')) }}
-                                </td>
+                                <td>UGX {{ number_format($production->ingredientUsages->sum('cost')) }}</td>
                             </tr>
                         </tfoot>
                     </table>

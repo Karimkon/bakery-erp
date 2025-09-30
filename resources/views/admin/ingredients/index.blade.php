@@ -29,7 +29,7 @@
         <tr>
             <td>{{ $ing->name }}</td>
             <td>{{ $ing->unit }}</td>
-            <td>{{ number_format($ing->current_price_per_unit) }}</td>
+            <td>{{ number_format($ing->unit_cost) }}</td>
             <td>{{ $ing->stock }}</td>
             <td>
                 <a href="{{ route('admin.ingredients.show',$ing) }}" class="btn btn-sm btn-info">View</a>

@@ -100,7 +100,7 @@ public function store(Request $request)
         $ingredient = Ingredient::find($id);
         if (!$ingredient) continue;
 
-        $cost = $ingredient->current_price_per_unit * $qty;
+        $cost = $ingredient->unit_cost * $qty;
 
         $production->ingredientUsages()->create([
             'ingredient_id' => $id,

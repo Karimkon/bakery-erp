@@ -348,6 +348,12 @@ body {
                     </div>
                 </div>
             </div>
+
+            <a href="{{ route('admin.reports.index') }}" 
+                class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
+                    <i class="bi bi-file-earmark-bar-graph"></i> Reports
+                </a>
+
         </div>
     </div>
 

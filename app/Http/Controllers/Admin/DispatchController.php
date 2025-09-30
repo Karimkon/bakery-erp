@@ -8,33 +8,57 @@ use App\Models\DispatchItem;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class DispatchController extends Controller
 {
- 
-  public function index()
+ public function index(Request $request)
 {
     $perPage = 20;
+    $searchDriver = $request->input('driver');
 
-    // Load dispatches with driver and items
-    $dispatchesQuery = Dispatch::with('driver', 'items')
-        ->orderBy('dispatch_date', 'asc')  // ascending for running balance
-        ->orderBy('dispatch_no', 'asc');
+    // 1️⃣ Get all dispatches with driver & items
+    $query = Dispatch::with('driver', 'items')->orderBy('dispatch_date', 'desc')->orderBy('dispatch_no', 'desc');
 
-    // Paginate
-    $dispatches = $dispatchesQuery->paginate($perPage);
-
-    // Recalculate balance_due as remaining stock value for each dispatch
-    foreach ($dispatches as $d) {
-        $d->total_sales_value = $d->items->sum(fn($i) => $i->sold_qty * $i->unit_price);
-        $d->cash_received     = $d->items->sum(fn($i) => $i->sold_cash * $i->unit_price);
-
-        // New: balance_due = value of remaining stock
-        $d->balance_due = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+    if ($searchDriver) {
+        $query->whereHas('driver', fn($q) => $q->where('name', 'like', "%$searchDriver%"));
     }
 
-    return view('admin.dispatches.index', compact('dispatches'));
+    $allDispatches = $query->get();
+
+    // 2️⃣ Keep only latest dispatch per driver
+    $driverLatest = [];
+    foreach ($allDispatches as $dispatch) {
+        if (!isset($driverLatest[$dispatch->driver_id])) {
+            $driverLatest[$dispatch->driver_id] = $dispatch;
+        }
+    }
+
+    $dispatches = collect($driverLatest)->values();
+
+    // 3️⃣ Compute Balance Due (Unsold Goods) per dispatch
+    $dispatches->transform(function ($d) {
+        $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+        $d->balanceDue = $remainingInventoryValue;
+        return $d;
+    });
+
+    // 4️⃣ Manual pagination
+    $page = $request->input('page', 1);
+    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $dispatches->forPage($page, $perPage)->values(),
+        $dispatches->count(),
+        $perPage,
+        $page,
+        ['path' => $request->url(), 'query' => $request->query()]
+    );
+
+    return view('admin.dispatches.index', [
+        'dispatches'   => $paginated,
+        'searchDriver' => $searchDriver
+    ]);
 }
+
 
     public function create()
     {
@@ -111,14 +135,10 @@ class DispatchController extends Controller
                 'line_total'     => $lineTotal,
             ];
         }
-
-        // ✅ Compute cumulative balance for driver
-        $previousBalance = Dispatch::where('driver_id', $request->driver_id)
-            ->latest('dispatch_date')
-            ->latest('dispatch_no')
-            ->value('balance_due') ?? 0;
-
-        $balanceDue = $previousBalance + $totalSalesValue - $cashReceived;
+        $balanceDue = 0;
+        foreach ($lines as $line) {
+            $balanceDue += $line['remaining_qty'] * $line['unit_price'];
+        }
 
         // ✅ compute commissions once, after building all lines
         $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
@@ -133,15 +153,15 @@ class DispatchController extends Controller
             'total_items_sold'  => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
             'commission_total'  => $commissionTotal,
-            'cash_received'=>$request->cash_received ?? 0, 
+            'cash_received' => $cashReceived, 
             'balance_due'       => $balanceDue,
         ]);
-
 
             foreach ($lines as $row) {
                 $row['dispatch_id'] = $dispatch->id;
                 DispatchItem::create($row);
             }
+
         });
 
         return redirect()
@@ -205,6 +225,8 @@ public function update(Request $request, Dispatch $dispatch)
         'driver_id'     => ['required','exists:users,id'],
         'dispatch_date' => ['required','date'],
         'items'         => ['required','array'],
+        'cash_received' => ['nullable','numeric','min:0'],
+        'balance_due'   => ['nullable','numeric'],
     ]);
 
     // verify driver
@@ -215,7 +237,7 @@ public function update(Request $request, Dispatch $dispatch)
     DB::transaction(function() use ($request, $dispatch, $products) {
 
         // 1️⃣ Recompute openings from all previous dispatches
-        $openings = $this->computeOpenings($request->driver_id, $request->dispatch_date, $dispatch->id,$dispatch->dispatch_no);
+        $openings = $this->computeOpenings($request->driver_id, $request->dispatch_date, $dispatch->id);
 
         $lines = [];
         $totalItemsSold  = 0;
@@ -237,7 +259,8 @@ public function update(Request $request, Dispatch $dispatch)
             $remaining = $available - $sold;
             $unitPrice = (float) $price;
             $lineTotal = $sold * $unitPrice;
-            $cashReceived += $soldCash * $unitPrice;
+
+            $cashReceived += $soldCash * $unitPrice; // ✅ cash from sold_cash only
             $totalItemsSold  += $sold;
             $totalSalesValue += $lineTotal;
 
@@ -257,7 +280,19 @@ public function update(Request $request, Dispatch $dispatch)
         // 2️⃣ Compute commissions
         $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
 
-        // 3️⃣ Update the current dispatch
+
+         // ✅ FIXED: Balance Due = Value of remaining goods with driver  
+        $balanceDue = 0;
+        foreach ($lines as $line) {
+            $balanceDue += $line['remaining_qty'] * $line['unit_price'];
+        }
+        
+            // Use form input for cash_received if provided, otherwise use calculated value
+        $finalCashReceived = $request->filled('cash_received') 
+            ? (float) $request->cash_received 
+            : $cashReceived;
+
+
         $dispatch->update([
             'driver_id'         => $request->driver_id,
             'dispatch_date'     => $request->dispatch_date,
@@ -265,57 +300,15 @@ public function update(Request $request, Dispatch $dispatch)
             'total_items_sold'  => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
             'commission_total'  => $commissionTotal,
-            'cash_received'     => $cashReceived,
+            'cash_received'     => $cashReceived, // ✅ recomputed
+            'balance_due'       => $balanceDue,   // ✅ recomputed
         ]);
 
-        // Replace old items
+        // 4️⃣ Replace old items (avoid duplicates)
         $dispatch->items()->delete();
         foreach ($lines as $row) {
             $row['dispatch_id'] = $dispatch->id;
             DispatchItem::create($row);
-        }
-
-        // 4️⃣ Recompute balance_due for this and all subsequent dispatches
-        $driverDispatches = Dispatch::where('driver_id', $request->driver_id)
-            ->where(function($q) use ($dispatch) {
-                $q->where('dispatch_date', '>', $dispatch->dispatch_date)
-                  ->orWhere(function($q2) use ($dispatch) {
-                      $q2->where('dispatch_date', $dispatch->dispatch_date)
-                         ->where('dispatch_no', '>=', $dispatch->dispatch_no);
-                  });
-            })
-            ->orderBy('dispatch_date')
-            ->orderBy('dispatch_no')
-            ->get();
-
-        // start running balance from all dispatches before this one
-        $runningBalance = Dispatch::where('driver_id', $request->driver_id)
-            ->where(function($q) use ($dispatch) {
-                $q->where('dispatch_date', '<', $dispatch->dispatch_date)
-                  ->orWhere(function($q2) use ($dispatch) {
-                      $q2->where('dispatch_date', $dispatch->dispatch_date)
-                         ->where('dispatch_no', '<', $dispatch->dispatch_no);
-                  });
-            })
-            ->latest('dispatch_date')
-            ->latest('dispatch_no')
-            ->value('balance_due') ?? 0;
-
-        // include current dispatch
-        $allDispatches = collect([$dispatch])->merge($driverDispatches);
-
-        // ✅ reload fresh items for each dispatch to avoid stale sums
-        $allDispatches = $allDispatches->map(fn($d) => $d->load('items'));
-
-
-
-        foreach ($allDispatches as $d) {
-            $totalSales = $d->items->sum(fn($i) => $i->sold_qty * $i->unit_price);
-            $cashReceived = $d->items->sum(fn($i) => $i->sold_cash * $i->unit_price);
-            $d->balance_due = $runningBalance + $totalSales - $cashReceived;
-            $d->save();
-
-            $runningBalance = $d->balance_due;
         }
 
     }); // end transaction
@@ -323,6 +316,8 @@ public function update(Request $request, Dispatch $dispatch)
     return redirect()->route('admin.dispatches.show',$dispatch->id)
                      ->with('success','Dispatch updated successfully.');
 }
+
+
 
 
 

@@ -295,24 +295,38 @@ $(function () {
         commissionTotal += commission;
     });
 
+    // Update the visible form fields
     $('input[name="cash_received"]').val(cashReceived);
-    $('input[name="balance_due"]').val(totalSales - cashReceived);
     
+    // Calculate balance_due: keep existing balance + new sales - new cash
+    let currentBalanceDue = parseFloat($('input[name="balance_due"]').attr('data-original') || 0);
+    let newBalanceDue = totalSales - cashReceived;
+
+    $('input[name="balance_due"]').val(newBalanceDue);
+    
+    // Update hidden fields for form submission
     $('#commission_total').val(commissionTotal);
     $('#total_sales_value').val(totalSales);
     $('#total_items_sold').val(totalItemsSold);
 }
 
+// Store original balance_due on page load
+$(document).ready(function() {
+    let originalBalance = parseFloat($('input[name="balance_due"]').val()) || 0;
+    $('input[name="balance_due"]').attr('data-original', originalBalance);
+});
+
 // Call it after every row recompute
 $('table').on('input change', 'input[name*="[dispatched_qty]"], input[name*="[sold_cash]"], input[name*="[sold_credit]"]', function () {
     let $row = $(this).closest('tr');
     recomputeRow($row);
-    recomputeTotals(); // <-- update totals
+    recomputeTotals();
 });
 
 // Also call on page load after initial recomputeAll
-recomputeTotals();
-});
+setTimeout(function() {
+    recomputeTotals();
+}, 100);
 
 </script>
 @endpush

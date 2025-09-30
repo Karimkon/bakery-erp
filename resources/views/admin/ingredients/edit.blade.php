@@ -15,8 +15,8 @@
         <input type="text" name="unit" value="{{ $ingredient->unit }}" class="form-control" required>
     </div>
     <div class="mb-3">
-        <label>Current Price per Unit (UGX)</label>
-        <input type="number" name="current_price_per_unit" value="{{ $ingredient->current_price_per_unit }}" class="form-control" required>
+        <label> Unit Cost (UGX)</label>
+        <input type="number" name="unit_cost" value="{{ $ingredient->unit_cost }}" class="form-control" required>
     </div>
     <div class="mb-3">
         <label>Stock</label>

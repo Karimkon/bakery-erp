@@ -12,6 +12,7 @@ class DashboardController extends Controller
     public function index()
     {
         $today = Carbon::today();
+        $totalusers = \App\Models\User::count();
 
         // Quick stats
         $totalProductions = Production::count();
@@ -31,7 +32,8 @@ class DashboardController extends Controller
             'todayProductions',
             'totalValue',
             'varianceCount',
-            'chartData'
+            'chartData',
+            'totalusers'
         ));
     }
 }

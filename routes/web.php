@@ -12,6 +12,7 @@ use App\Http\Controllers\Finance\DashboardController as FinanceDashboardControll
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Sales\BankingController;
 use App\Http\Controllers\Sales\ShopStockController;
+use App\Http\Controllers\Admin\ReportsController;
 
 
 // Home
@@ -154,6 +155,10 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
 
     Route::post('/dispatches/{dispatch}/mark-received', 
     [\App\Http\Controllers\Admin\DispatchController::class, 'markReceived'])->name('dispatches.markReceived');
+
+    Route::get('reports', [ReportsController::class,'index'])->name('reports.index');
+    Route::get('reports/export-pdf', [ReportsController::class,'exportPdf'])->name('reports.exportPdf');
+    Route::get('reports/export-excel', [ReportsController::class,'exportExcel'])->name('reports.exportExcel');
 
 
     

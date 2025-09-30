@@ -17,6 +17,7 @@
         <select name="role" class="form-select">
             <option value="admin" @selected($user->role=='admin')>Admin</option>
             <option value="chef" @selected($user->role=='chef')>Chef</option>
+            <option value="driver" @selected($user->role=='driver')>Driver</option>
             <option value="sales" @selected($user->role=='sales')>Sales</option>
             <option value="finance" @selected($user->role=='finance')>Finance</option>
         </select>

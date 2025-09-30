@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bakery ERP - Sweet Management Solutions</title>
+    <title>Bakery ERP - Bread Cravers</title>
     
     <!-- Tailwind Setup -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,12 +12,16 @@
     </script>
     
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png">
+
     
     <style>
         body { 
             font-family: 'Poppins', sans-serif; 
             overflow-x: hidden;
         }
+        
         
         /* Background Animation */
         .bg-animation {
@@ -290,9 +294,6 @@
                 <p class="text-lg sm:text-xl text-gray-300 mb-4 leading-relaxed max-w-2xl mx-auto">
                     Transform your bakery operations with our comprehensive management system. 
                     From production to sales, we've got you covered! 🍰
-                </p>
-                <p class="text-base sm:text-lg text-yellow-300 font-medium">
-                    Sweet solutions for sweet businesses ✨
                 </p>
             </div>
             

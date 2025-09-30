@@ -15,8 +15,8 @@
         <input type="text" name="unit" class="form-control" required>
     </div>
     <div class="mb-3">
-        <label>Current Price per Unit (UGX)</label>
-        <input type="number" name="current_price_per_unit" class="form-control" required>
+        <label> Unit Cost (UGX)</label>
+        <input type="number" name="unit_cost" class="form-control" required>
     </div>
     <div class="mb-3">
         <label>Stock (optional)</label>

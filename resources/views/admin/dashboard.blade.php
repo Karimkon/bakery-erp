@@ -6,6 +6,22 @@
 
 <!-- Summary Cards -->
 <div class="row g-4 mb-4">
+    <!-- Total Users -->
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted text-uppercase small mb-2">Total Users</h6>
+                    <h3 class="fw-bold">{{ $totalusers }}</h3>  
+                </div>
+                <div class="icon-circle bg-info text-white">
+                    <i class="bi bi-people"></i>    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Productions -->
     <div class="col-6 col-md-3">
         <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
             <div class="d-flex justify-content-between align-items-center">
@@ -20,6 +36,7 @@
         </div>
     </div>
 
+    <!-- Today’s Records -->
     <div class="col-6 col-md-3">
         <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
             <div class="d-flex justify-content-between align-items-center">
@@ -34,6 +51,7 @@
         </div>
     </div>
 
+    <!-- Total Value -->
     <div class="col-6 col-md-3">
         <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
             <div class="d-flex justify-content-between align-items-center">
@@ -48,6 +66,7 @@
         </div>
     </div>
 
+    <!-- Variances -->
     <div class="col-6 col-md-3">
         <div class="card shadow-sm border-0 p-4 dashboard-card h-100">
             <div class="d-flex justify-content-between align-items-center">

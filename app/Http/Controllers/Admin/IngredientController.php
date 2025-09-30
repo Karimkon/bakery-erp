@@ -24,7 +24,7 @@ class IngredientController extends Controller
         $request->validate([
             'name' => 'required|string|max:255|unique:ingredients,name',
             'unit' => 'required|string|max:50',
-            'current_price_per_unit' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
             'stock' => 'nullable|numeric|min:0',
         ]);
 
@@ -49,7 +49,7 @@ class IngredientController extends Controller
         $request->validate([
             'name' => 'required|string|max:255|unique:ingredients,name,' . $ingredient->id,
             'unit' => 'required|string|max:50',
-            'current_price_per_unit' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
             'stock' => 'nullable|numeric|min:0',
         ]);
 
