@@ -9,7 +9,7 @@ class Dispatch extends Model
     protected $fillable = [
         'driver_id', 'dispatch_date', 'notes', 'dispatch_no',
         'total_items_sold', 'total_sales_value', 'commission_total',
-        'cash_received','balance_due',
+        'cash_received','balance_due', 'driver_signature',
     ];
 
     protected $casts = [

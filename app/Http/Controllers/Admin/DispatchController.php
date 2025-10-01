@@ -76,6 +76,7 @@ class DispatchController extends Controller
             'driver_id'      => ['required','exists:users,id'],
             'dispatch_date'  => ['required','date'],
             'items'          => ['required','array'],
+            'driver_signature' => ['nullable','string'],
         ]);
 
         // verify selected user is actually a driver
@@ -150,16 +151,27 @@ class DispatchController extends Controller
             'dispatch_date'     => $request->dispatch_date,
             'dispatch_no'       => $nextNo, 
             'notes'             => $request->notes,
+            'driver_signature'  => $request->driver_signature, 
             'total_items_sold'  => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
             'commission_total'  => $commissionTotal,
             'cash_received' => $cashReceived, 
             'balance_due'       => $balanceDue,
+
         ]);
 
             foreach ($lines as $row) {
                 $row['dispatch_id'] = $dispatch->id;
                 DispatchItem::create($row);
+
+                // ✅ Deduct bakery stock
+                $stock = \App\Models\BakeryStock::where('product', $row['product'])->first();
+                if ($stock) {
+                    if ($row['dispatched_qty'] > $stock->quantity) {
+                        throw new \Exception("Not enough bakery stock for {$row['product']}");
+                    }
+                    $stock->decrement('quantity', $row['dispatched_qty']);
+                }
             }
 
         });
@@ -222,100 +234,96 @@ public function update(Request $request, Dispatch $dispatch)
     $products = config('bakery_products');
 
     $request->validate([
-        'driver_id'     => ['required','exists:users,id'],
+        'driver_id' => ['required','exists:users,id'],
         'dispatch_date' => ['required','date'],
-        'items'         => ['required','array'],
+        'items' => ['required','array'],
+        'driver_signature' => ['nullable','string'],
         'cash_received' => ['nullable','numeric','min:0'],
-        'balance_due'   => ['nullable','numeric'],
+        'balance_due' => ['nullable','numeric'],
     ]);
 
-    // verify driver
     if (!User::where('id',$request->driver_id)->where('role','driver')->exists()) {
         return back()->withErrors(['driver_id'=>'Selected user is not a driver'])->withInput();
     }
 
     DB::transaction(function() use ($request, $dispatch, $products) {
-
-        // 1️⃣ Recompute openings from all previous dispatches
-        $openings = $this->computeOpenings($request->driver_id, $request->dispatch_date, $dispatch->id);
+        // Restore old stock
+        foreach ($dispatch->items as $oldItem) {
+            $stock = \App\Models\BakeryStock::where('product', $oldItem->product)->first();
+            if ($stock) {
+                $stock->increment('quantity', $oldItem->dispatched_qty);
+            }
+        }
 
         $lines = [];
-        $totalItemsSold  = 0;
+        $totalItemsSold = 0;
         $totalSalesValue = 0;
-        $cashReceived    = 0;
+        $cashReceived = 0;
 
         foreach ($products as $product => $price) {
-            $opening    = (int) ($openings[$product] ?? 0);
-            $dispatched = (int) data_get($request->items, "$product.dispatched_qty", 0);
-            $soldCash   = (int) data_get($request->items, "$product.sold_cash", 0);
-            $soldCredit = (int) data_get($request->items, "$product.sold_credit", 0);
-            $sold       = $soldCash + $soldCredit;
+            $item = $request->items[$product] ?? [];
+            $dispatched = (int) ($item['dispatched_qty'] ?? 0);
+            $soldCash = (int) ($item['sold_cash'] ?? 0);
+            $soldCredit = (int) ($item['sold_credit'] ?? 0);
+            $sold = $soldCash + $soldCredit;
+            $opening = (int) ($item['opening_stock'] ?? 0);
+            $remaining = ($opening + $dispatched) - $sold;
 
-            $available = $opening + $dispatched;
-            if ($sold > $available) {
-                throw new \Exception("Sold ($sold) cannot exceed Opening+Dispatched ($available) for $product");
+            if ($sold > $opening + $dispatched) {
+                throw new \Exception("Sold ($sold) cannot exceed Opening+Dispatched ($opening+$dispatched) for $product");
             }
 
-            $remaining = $available - $sold;
             $unitPrice = (float) $price;
             $lineTotal = $sold * $unitPrice;
-
-            $cashReceived += $soldCash * $unitPrice; // ✅ cash from sold_cash only
-            $totalItemsSold  += $sold;
+            $cashReceived += $soldCash * $unitPrice;
+            $totalItemsSold += $sold;
             $totalSalesValue += $lineTotal;
 
-            $lines[] = [
-                'product'        => $product,
-                'opening_stock'  => $opening,
-                'dispatched_qty' => $dispatched,
-                'sold_cash'      => $soldCash,
-                'sold_credit'    => $soldCredit,
-                'sold_qty'       => $sold,
-                'remaining_qty'  => $remaining,
-                'unit_price'     => $unitPrice,
-                'line_total'     => $lineTotal,
-            ];
+            $lines[] = array_merge($item, [
+                'product' => $product,
+                'sold_qty' => $sold,
+                'remaining_qty' => $remaining,
+                'unit_price' => $unitPrice,
+                'line_total' => $lineTotal,
+            ]);
         }
 
-        // 2️⃣ Compute commissions
-        $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
-
-
-         // ✅ FIXED: Balance Due = Value of remaining goods with driver  
-        $balanceDue = 0;
-        foreach ($lines as $line) {
-            $balanceDue += $line['remaining_qty'] * $line['unit_price'];
-        }
-        
-            // Use form input for cash_received if provided, otherwise use calculated value
-        $finalCashReceived = $request->filled('cash_received') 
-            ? (float) $request->cash_received 
-            : $cashReceived;
-
+        $commissionTotal = collect($lines)->sum(fn($l)=> (float)($l['commission'] ?? 0));
+        $balanceDue = $totalSalesValue - $cashReceived;
 
         $dispatch->update([
-            'driver_id'         => $request->driver_id,
-            'dispatch_date'     => $request->dispatch_date,
-            'notes'             => $request->notes,
-            'total_items_sold'  => $totalItemsSold,
+            'driver_id' => $request->driver_id,
+            'dispatch_date' => $request->dispatch_date,
+            'notes' => $request->notes,
+            'total_items_sold' => $totalItemsSold,
             'total_sales_value' => $totalSalesValue,
-            'commission_total'  => $commissionTotal,
-            'cash_received'     => $cashReceived, // ✅ recomputed
-            'balance_due'       => $balanceDue,   // ✅ recomputed
+            'commission_total' => $commissionTotal,
+            'cash_received' => $cashReceived,
+            'balance_due' => $balanceDue,
+            'driver_signature' => $request->driver_signature,
         ]);
 
-        // 4️⃣ Replace old items (avoid duplicates)
+        // Delete old items and create new ones
         $dispatch->items()->delete();
         foreach ($lines as $row) {
             $row['dispatch_id'] = $dispatch->id;
             DispatchItem::create($row);
+
+            $stock = \App\Models\BakeryStock::where('product', $row['product'])->first();
+            if ($stock && $row['dispatched_qty'] > 0) {
+                if ($row['dispatched_qty'] > $stock->quantity) {
+                    throw new \Exception("Not enough stock for {$row['product']}");
+                }
+                $stock->decrement('quantity', $row['dispatched_qty']);
+            }
         }
+    });
 
-    }); // end transaction
-
-    return redirect()->route('admin.dispatches.show',$dispatch->id)
+    return redirect()->route('admin.dispatches.show', $dispatch->id)
                      ->with('success','Dispatch updated successfully.');
 }
+
+
 
 
 

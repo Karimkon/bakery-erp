@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Ingredient;
 use Illuminate\Http\Request;
+use App\Models\User; // for chefs
+
 
 class IngredientController extends Controller
 {
@@ -15,9 +17,10 @@ class IngredientController extends Controller
     }
 
     public function create()
-    {
-        return view('admin.ingredients.create');
-    }
+{
+    $chefs = User::where('role', 'chef')->get();
+    return view('admin.ingredients.create', compact('chefs'));
+}
 
     public function store(Request $request)
     {
@@ -26,6 +29,8 @@ class IngredientController extends Controller
             'unit' => 'required|string|max:50',
             'unit_cost' => 'required|numeric|min:0',
             'stock' => 'nullable|numeric|min:0',
+            'chef_id' => 'nullable|exists:users,id'
+
         ]);
 
         Ingredient::create($request->all());
@@ -41,7 +46,8 @@ class IngredientController extends Controller
 
     public function edit(Ingredient $ingredient)
     {
-        return view('admin.ingredients.edit', compact('ingredient'));
+        $chefs = User::where('role', 'chef')->get();
+        return view('admin.ingredients.edit', compact('ingredient', 'chefs'));
     }
 
     public function update(Request $request, Ingredient $ingredient)
@@ -51,6 +57,8 @@ class IngredientController extends Controller
             'unit' => 'required|string|max:50',
             'unit_cost' => 'required|numeric|min:0',
             'stock' => 'nullable|numeric|min:0',
+            'chef_id' => 'nullable|exists:users,id'
+
         ]);
 
         $ingredient->update($request->all());

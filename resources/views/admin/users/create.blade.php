@@ -29,7 +29,7 @@
                 <select id="role" name="role" class="form-select @error('role') is-invalid @enderror" required>
                     <option value="">-- Select Role --</option>
                     @php
-                        $roles = ['admin'=>'Admin','chef'=>'Chef','sales'=>'Sales','finance'=>'Finance','driver'=>'Driver'];
+                        $roles = ['admin'=>'Admin','chef'=>'Chef','sales'=>'Sales','finance'=>'Finance','driver'=>'Driver','manager'=>'Manager'];
                     @endphp
                     @foreach($roles as $key => $label)
                         <option value="{{ $key }}" @selected(old('role') == $key)>{{ $label }}</option>

@@ -35,7 +35,7 @@
                 <td>{{ $u->email }}</td>
                 <td>
                     @php
-                        $roleColors = ['admin'=>'danger','driver'=>'primary','finance'=>'success','inventory'=>'warning','agent'=>'info'];
+                        $roleColors = ['admin'=>'danger','driver'=>'primary','finance'=>'success','inventory'=>'warning','agent'=>'info','sales'=>'secondary','chef'=>'dark','manager'=>'purple'];
                         $color = $roleColors[$u->role] ?? 'secondary';
                     @endphp
                     <span class="badge bg-{{ $color }}">{{ ucfirst($u->role) }}</span>

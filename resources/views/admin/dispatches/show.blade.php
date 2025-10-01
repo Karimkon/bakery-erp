@@ -94,7 +94,10 @@
 
 @php
     $remainingInventoryValue = $dispatch->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+    $driverBackDebt = $dispatch->driver?->back_debt ?? 0;
+
 @endphp
+
 
 <div class="mt-4">
     <h6>Balance Summary:</h6>
@@ -109,18 +112,38 @@
         </tr>
         <tr>
             <td><strong>Remaining Inventory Value:</strong></td>
-            <td>UGX {{ number_format($remainingInventoryValue, 0) }}</td>
+            <td>
+                @if($remainingInventoryValue > 0)
+                    <span class="text-danger">UGX {{ number_format($remainingInventoryValue, 0) }}</span>
+                @else
+                    <span class="text-success">All items sold or returned</span>
+                @endif
+            </td>
         </tr>
-        <tr class="table-light">
-            <td><strong>Balance Due (Unsold Goods):</strong></td>
-            <td><strong>UGX {{ number_format($dispatch->balance_due, 0) }}</strong></td>
+
+        @if($driverBackDebt > 0)
+        <tr>
+            <td><strong>Driver Back Debt:</strong></td>
+            <td class="text-danger">UGX {{ number_format($driverBackDebt, 0) }}</td>
         </tr>
+        <tr>
+            <td><strong>Total Balance Due (including debt):</strong></td>
+            <td><strong>UGX {{ number_format($dispatch->balance_due + $remainingInventoryValue + $driverBackDebt, 0) }}</strong></td>
+        </tr>
+
+        @endif
     </table>
-    
-    @if($dispatch->balance_due > 0)
-        <p class="text-warning"><small><em>Driver owes for unsold goods worth UGX {{ number_format($dispatch->balance_due, 0) }}.</em></small></p>
-    @else
-        <p class="text-success"><small><em>No unsold goods - all items were sold or returned.</em></small></p>
+
+    @if($dispatch->driver_signature)
+        <img src="{{ $dispatch->driver_signature }}" alt="Driver Signature" style="max-width:400px; border:1px solid #ccc;">
+    @endif
+
+    <p>Balance Due: UGX {{ number_format($dispatch->balance_due) }}</p>
+    @if($dispatch->balance_due > 500000)
+        <p class="text-warning">Grace period: 30 days</p>
+    @elseif($dispatch->balance_due > 200000)
+        <p class="text-info">Grace period: 14 days</p>
     @endif
 </div>
+
 @endsection

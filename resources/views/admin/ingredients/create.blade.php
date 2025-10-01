@@ -6,6 +6,19 @@
 
 <form action="{{ route('admin.ingredients.store') }}" method="POST">
     @csrf
+
+    <div class="mb-3">
+        <label>Assign to Chef</label>
+        <select name="chef_id" class="form-control">
+            <option value="">-- None --</option>
+            @foreach($chefs as $chef)
+                <option value="{{ $chef->id }}" {{ ($ingredient->chef_id ?? old('chef_id')) == $chef->id ? 'selected' : '' }}>
+                    {{ $chef->name }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
     <div class="mb-3">
         <label>Name</label>
         <input type="text" name="name" class="form-control" required>

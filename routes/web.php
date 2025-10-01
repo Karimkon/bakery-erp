@@ -122,6 +122,31 @@ return back()->with('error', 'Only admins can login here.');
 })->name('finance.login.submit');
 
 // ----------------------
+// Manager Login
+// ----------------------
+Route::get('/manager/login', fn () => view('manager.auth.login'))->name('manager.login');
+
+Route::post('/manager/login', function (Request $request) {
+    $credentials = $request->validate([
+        'email' => ['required','email'],
+        'password' => ['required'],
+    ]);
+
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'manager',   // force manager here
+    ], $request->boolean('remember'))) {
+
+        $request->session()->regenerate();
+        return redirect()->intended(route('manager.dashboard'));
+    }
+
+    return back()->with('error', 'Only managers can login here.');
+})->name('manager.login.submit');
+
+
+// ----------------------
 // Shared logout
 // ----------------------
 Route::post('/logout', function (Request $request) {
@@ -182,6 +207,12 @@ Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')-
     Route::get('/dashboard', [FinanceDashboardController::class,'index'])->name('dashboard');
     Route::resource('expenses', App\Http\Controllers\Finance\ExpenseController::class);
     Route::resource('deposits', App\Http\Controllers\Finance\BankDepositController::class);
+
+});
+
+Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
+    Route::get('/dashboard', [ManagerDashboardController::class,'index'])->name('dashboard');
+
 
 });
 

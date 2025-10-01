@@ -17,6 +17,7 @@
 <table class="table table-striped">
     <thead class="table-dark">
         <tr>
+            <th>Chef</th>
             <th>Name</th>
             <th>Unit</th>
             <th>Price/Unit (UGX)</th>
@@ -27,6 +28,7 @@
     <tbody>
         @foreach($ingredients as $ing)
         <tr>
+            <td>{{ $ing->chef ? $ing->chef->name : '-' }}</td>
             <td>{{ $ing->name }}</td>
             <td>{{ $ing->unit }}</td>
             <td>{{ number_format($ing->unit_cost) }}</td>

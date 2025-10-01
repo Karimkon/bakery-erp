@@ -21,7 +21,9 @@ class ProductionController extends Controller
 
     public function create()
     {
-        $ingredients = Ingredient::orderBy('name')->get();
+        $ingredients = Ingredient::where('chef_id', Auth::id())
+                            ->orderBy('name')
+                            ->get();
         $products = config('bakery_products'); // 👈 defined in config/bakery_products.php
         return view('chef.productions.create', compact('ingredients', 'products'));
     }
@@ -128,6 +130,16 @@ class ProductionController extends Controller
 
                 // Deduct stock
                 $ingredient->decrement('stock', $qty);
+
+                // Add produced items to bakery stock
+                foreach ($outputs as $product => $qty) {
+                    if ((int)$qty <= 0) continue;
+                    $stock = \App\Models\BakeryStock::firstOrCreate(
+                        ['product' => $product],
+                        ['quantity' => 0]
+                    );
+                    $stock->increment('quantity', (int)$qty);
+                }
             }
         }
     });

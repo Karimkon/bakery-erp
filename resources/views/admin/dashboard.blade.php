@@ -82,6 +82,43 @@
     </div>
 </div>
 
+<!-- Stock Alert Modal -->
+<div class="modal fade" id="stockAlertModal" tabindex="-1" aria-labelledby="stockAlertLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold" id="stockAlertLabel">
+          <i class="bi bi-bell-fill me-2"></i>Daily Stock Alert
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">Here are the current stock levels as of today:</p>
+        <table class="table table-bordered">
+          <thead class="table-light">
+            <tr>
+              <th>Product</th>
+              <th>Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($bakeryStocks as $stock)
+              <tr>
+                <td>{{ ucfirst(str_replace('_',' ', $stock->product)) }}</td>
+                <td>{{ number_format($stock->quantity) }}</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Chart Card -->
 <div class="card shadow-sm p-3">
     <h5 class="mb-3">Last 7 Days Production Value</h5>
@@ -139,5 +176,15 @@ new Chart(ctx, {
         }
     }
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Only show modal if there are stocks
+    @if($bakeryStocks->count() > 0)
+        var myModal = new bootstrap.Modal(document.getElementById('stockAlertModal'));
+        myModal.show();
+    @endif
+});
 </script>
+
+
 @endsection

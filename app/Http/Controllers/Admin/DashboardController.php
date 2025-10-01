@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Production;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use App\Models\BakeryStock;
+
 
 class DashboardController extends Controller
 {
@@ -27,13 +29,17 @@ class DashboardController extends Controller
             ->where('production_date', '>=', Carbon::now()->subDays(7))
             ->pluck('value', 'production_date');
 
+            // 👉 fetch all bakery stocks
+            $bakeryStocks = BakeryStock::all();
+
         return view('admin.dashboard', compact(
             'totalProductions',
             'todayProductions',
             'totalValue',
             'varianceCount',
             'chartData',
-            'totalusers'
+            'totalusers',
+            'bakeryStocks'
         ));
     }
 }

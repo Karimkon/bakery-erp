@@ -40,16 +40,17 @@
         <hr class="my-4">
         <h5 class="mb-3">Ingredients Used</h5>
         <div class="row g-3">
-            @foreach($ingredients as $ing)
-                <div class="col-md-3 col-sm-6">
-                    <label class="form-label">
-                        {{ $ing->name }} 
-                        <small class="text-muted">({{ $ing->unit }}, Stock: {{ $ing->stock }})</small>
-                    </label>
-                    <input type="number" step="0.01" name="ingredients[{{ $ing->id }}]" 
-                           class="form-control" min="0">
-                </div>
+           @foreach($ingredients as $ing)
+            <div class="col-md-3 col-sm-6">
+                <label class="form-label">
+                    {{ $ing->name }} 
+                    <small class="text-muted">({{ $ing->unit }}, Stock: {{ $ing->stock }})</small>
+                </label>
+                <input type="number" step="0.01" name="ingredients[{{ $ing->id }}]" 
+                    class="form-control" min="0" max="{{ $ing->stock }}">
+            </div>
             @endforeach
+
         </div>
 
         <button class="btn btn-success mt-4">
