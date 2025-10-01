@@ -13,6 +13,9 @@ use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Sales\BankingController;
 use App\Http\Controllers\Sales\ShopStockController;
 use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Manager\ManagerDashboardController;
+use App\Http\Controllers\Manager\ManagerReportsController;
+
 
 
 // Home
@@ -212,9 +215,34 @@ Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')-
 
 Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
     Route::get('/dashboard', [ManagerDashboardController::class,'index'])->name('dashboard');
+    // ✅ give manager access to dispatches
+    // ✅ Custom route FIRST
+    Route::get('dispatches/openings/{driver}/{date}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'openings'])
+        ->name('dispatches.openings');
+    
+    // ✅ Resource route AFTER
+    Route::resource('dispatches', App\Http\Controllers\Manager\ManagerDispatchController::class);
+
+    Route::get('dispatch/export-pdf', [ManagerReportsController::class, 'exportPdf'])
+    ->name('dispatch.exportPdf')
+    ->defaults('reportType', 'dispatch');
+
+Route::get('dispatch/export-excel', [ManagerReportsController::class, 'exportExcel'])
+    ->name('dispatch.exportExcel')
+    ->defaults('reportType', 'dispatch');
 
 
-});
+    // Production Reports
+    Route::get('production', [ManagerReportsController::class, 'index'])->name('production.index');
+    Route::get('production/export-pdf', [ManagerReportsController::class, 'exportPdf'])
+    ->name('production.exportPdf')
+    ->defaults('reportType', 'production');
+
+Route::get('production/export-excel', [ManagerReportsController::class, 'exportExcel'])
+    ->name('production.exportExcel')
+    ->defaults('reportType', 'production');
+
+    });
 
 // ----------------------
 // Override default login
