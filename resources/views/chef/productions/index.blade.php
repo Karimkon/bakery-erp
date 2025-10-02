@@ -62,7 +62,7 @@
     </div>
 
     <!-- Pagination -->
-    <div class="mt-3">
-        {{ $productions->links() }}
-    </div>
+    <div class="d-flex justify-content-center mt-3">
+    {{ $productions->links('pagination::bootstrap-5') }}
+</div>  
 @endsection

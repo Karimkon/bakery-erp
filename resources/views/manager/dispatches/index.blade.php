@@ -49,9 +49,9 @@
                 <a href="{{ route('manager.dispatches.show',$d->id) }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-eye"></i> View
                 </a>
-                <a href="{{ route('manager.dispatches.edit',$d->id) }}" class="btn btn-sm btn-outline-warning">
+                <!-- <a href="{{ route('manager.dispatches.edit',$d->id) }}" class="btn btn-sm btn-outline-warning">
                     <i class="bi bi-pencil-square"></i> Edit
-                </a>
+                </a> -->
             </td>
         </tr>
         @empty

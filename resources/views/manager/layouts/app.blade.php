@@ -59,7 +59,7 @@ body {
     border-bottom: 1px solid rgba(255,255,255,0.2);
     color: var(--primary);
 }
-.sidebar a, .accordion-button {
+.sidebar a {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -72,8 +72,7 @@ body {
     font-weight: 500;
     transition: all 0.3s ease;
 }
-.sidebar a:hover, .sidebar a.active,
-.accordion-button:hover, .accordion-button:not(.collapsed) {
+.sidebar a:hover, .sidebar a.active {
     background: var(--primary);
     color: var(--sidebar-hover);
     transform: translateX(3px);
@@ -146,43 +145,20 @@ body {
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
 
-        <div class="accordion" id="managerAccordion">
+        <!-- Only valid routes: Dispatch and Production -->
+        <a href="{{ route('manager.dispatches.index') }}" class="{{ request()->routeIs('manager.dispatches.*') ? 'active' : '' }}">
+            <i class="bi bi-truck"></i> Driver Dispatches
+        </a>
 
-            <!-- Dispatch -->
-            <div class="accordion-item">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dispatchCollapse">
-                        <i class="bi bi-truck"></i> Dispatch
-                    </button>
-                </h2>
-                <div id="dispatchCollapse" class="accordion-collapse collapse {{ request()->is('manager/dispatches*') ? 'show' : '' }}">
-                    <div class="accordion-body">
-                        <a href="{{ route('manager.dispatches.index') }}" class="{{ request()->routeIs('manager.dispatches.*') ? 'active' : '' }}">
-                            <i class="bi bi-list-check"></i> Driver Dispatches
-                        </a>
-                    </div>
-                </div>
-            </div>
+        <a href="{{ route('manager.ingredients.index') }}" class="{{ request()->routeIs('manager.ingredients.*') ? 'active' : '' }}">
+            <i class="bi bi-box-seam"></i> Ingredients
+        </a>
 
+        <a href="{{ route('manager.production.index') }}" class="{{ request()->routeIs('manager.production.*') ? 'active' : '' }}">
+            <i class="bi bi-bar-chart-line"></i> Production Reports
+        </a>
 
-                    <!-- Production Reports -->
-            <div class="accordion-item">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#productionCollapse">
-                        <i class="bi bi-journal-text"></i> Productions
-                    </button>
-                </h2>
-                <div id="productionCollapse" class="accordion-collapse collapse {{ request()->is('manager/reports/*') ? 'show' : '' }}">
-                    <div class="accordion-body">
-                        <a href="{{ route('manager.production.index') }}" class="{{ request()->routeIs('manager.production.*') ? 'active' : '' }}">
-                            <i class="bi bi-bar-chart-line"></i> Production Reports
-                        </a>
-                        
-                    </div>
-                </div>
-            </div>
-
-        </div>
+        <!-- Removed any route that does not exist to avoid RouteNotFoundException -->
     </div>
 
     <!-- Sidebar Footer -->

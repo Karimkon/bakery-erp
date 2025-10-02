@@ -14,21 +14,24 @@ use App\Exports\ManagerProductionExport;
 class ManagerReportsController extends Controller
 {
     // Show combined report filter page
-    public function index(Request $request)
-    {
-        $dispatches  = $this->filterDispatches($request)->paginate(30);
-        $productions = $this->filterProductions($request)->paginate(30);
+   public function index(Request $request)
+{
+    $dispatches  = $this->filterDispatches($request)->paginate(30);
 
-        return view('manager.reports.index', [
-            'dispatches'  => $dispatches,
-            'productions' => $productions,
-            'from'        => $request->input('from_date'),
-            'to'          => $request->input('to_date'),
-            'driver'      => $request->input('driver'),
-            'product'     => $request->input('product'),
-            'type'        => $request->input('type', 'daily'), // daily, weekly, monthly, custom
-        ]);
-    }
+    // Get flattened productions (one row per product per date)
+    $productions = $this->getFlattenedProductions($request);
+
+    return view('manager.reports.index', [
+        'dispatches'  => $dispatches,
+        'productions' => $productions, // flattened, ready for Blade
+        'from'        => $request->input('from_date'),
+        'to'          => $request->input('to_date'),
+        'driver'      => $request->input('driver'),
+        'product'     => $request->input('product'),
+        'type'        => $request->input('type', 'daily'),
+    ]);
+}
+
 
     // PDF Export
     public function exportPdf(Request $request, $reportType)
@@ -115,13 +118,22 @@ protected function getFlattenedProductions(Request $request)
     foreach ($productions as $prod) {
         foreach (['buns','small_breads','big_breads','donuts','half_cakes','block_cakes','slab_cakes','birthday_cakes'] as $product) {
             $qty = $prod->$product ?? 0;
-            if ($qty > 0) {
+
+            // Calculate dispatched quantity for this product and date
+            $dispatchedQty = \App\Models\DispatchItem::whereHas('dispatch', function($q) use ($prod) {
+                    $q->whereDate('dispatch_date', $prod->production_date);
+                })
+                ->where('product', $product)
+                ->sum('dispatched_qty');
+
+            // Only include if produced or dispatched
+            if ($qty > 0 || $dispatchedQty > 0) {
                 $flattened->push((object)[
                     'production_date' => $prod->production_date,
-                    'product' => $product,
-                    'produced_qty' => $qty,
-                    'used_qty' => 0,       // update if tracking used
-                    'remaining_qty' => $qty // update if tracking remaining
+                    'product'         => $product,
+                    'produced_qty'    => $qty,
+                    'used_qty'        => $dispatchedQty,
+                    'remaining_qty'   => $qty - $dispatchedQty
                 ]);
             }
         }
@@ -129,5 +141,7 @@ protected function getFlattenedProductions(Request $request)
 
     return $flattened;
 }
+
+
 
 }

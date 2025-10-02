@@ -57,6 +57,12 @@
            class="{{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">
            <i class="bi bi-cash-coin me-2"></i> Dashboard
         </a>
+
+        <a href="{{ route('finance.payrolls.index') }}" 
+        class="{{ request()->routeIs('finance.payrolls.*') ? 'active' : '' }}">
+        <i class="bi bi-cash-stack me-2"></i> Payroll
+        </a>
+
         <a href="{{ route('finance.expenses.index') }}" 
            class="{{ request()->routeIs('finance.expenses.*') ? 'active' : '' }}">
            <i class="bi bi-wallet2 me-2"></i> Expenses

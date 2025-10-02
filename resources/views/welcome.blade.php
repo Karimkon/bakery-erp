@@ -340,8 +340,8 @@
                     <!-- Sales Card -->
                     <a href="/sales/login" class="role-card group p-6 rounded-2xl text-center relative overflow-hidden">
                         <div class="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">🛍️</div>
-                        <h4 class="text-xl font-bold mb-2 text-orange-300">Shop Sales</h4>
-                        <p class="text-sm text-gray-300 mb-4">Point of sale and customer management</p>
+                        <h4 class="text-xl font-bold mb-2 text-orange-300">Bakery Sales</h4>
+                        <p class="text-sm text-gray-300 mb-4">Point of sale and customer management for bakery</p>
                         <div class="bg-orange-600 hover:bg-orange-500 px-4 py-2 rounded-lg font-semibold transition-colors duration-300">
                             Manage Sales
                         </div>

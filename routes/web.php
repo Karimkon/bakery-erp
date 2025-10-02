@@ -208,8 +208,13 @@ Route::middleware(['auth','role:sales'])->prefix('sales')->name('sales.')->group
 
 Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')->group(function () {
     Route::get('/dashboard', [FinanceDashboardController::class,'index'])->name('dashboard');
+    Route::get('payrolls/{payroll}/payslip', [App\Http\Controllers\Finance\PayrollController::class, 'payslip'])
+     ->name('payrolls.payslip');
+
     Route::resource('expenses', App\Http\Controllers\Finance\ExpenseController::class);
     Route::resource('deposits', App\Http\Controllers\Finance\BankDepositController::class);
+    Route::resource('payrolls', App\Http\Controllers\Finance\PayrollController::class);
+
 
 });
 
@@ -242,7 +247,12 @@ Route::get('production/export-excel', [ManagerReportsController::class, 'exportE
     ->name('production.exportExcel')
     ->defaults('reportType', 'production');
 
+    // Ingredients Management
+    Route::resource('ingredients', App\Http\Controllers\Manager\ManagerIngredientController::class);
+
     });
+
+
 
 // ----------------------
 // Override default login

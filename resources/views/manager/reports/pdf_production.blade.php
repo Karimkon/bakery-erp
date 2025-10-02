@@ -15,66 +15,43 @@
 <body>
 <h3>Production Report</h3>
 
-
 @php
-$totalProduced = $totalUsed = $totalRemaining = 0;
-
-// Compute totals for each row
-foreach($items as $row){
-    $produced = $row->buns + $row->small_breads + $row->big_breads + $row->donuts + $row->half_cakes + $row->block_cakes + $row->slab_cakes + $row->birthday_cakes;
-    $used     = 0; // update if you track used qty
-    $remaining= $produced - $used;
-
-    $row->produced_qty  = $produced;
-    $row->used_qty      = $used;
-    $row->remaining_qty = $remaining;
-
-    $totalProduced += $produced;
-    $totalUsed     += $used;
-    $totalRemaining+= $remaining;
-}
+    $totalProduced = $items->sum('produced_qty');
+    $totalUsed     = $items->sum('used_qty');
+    $totalRemaining= $items->sum('remaining_qty');
 @endphp
 
-{{-- Summary Table --}}
+{{-- Summary --}}
 <table>
     <tr><td>Total Produced</td><td>{{ $totalProduced }}</td></tr>
     <tr><td>Total Used</td><td>{{ $totalUsed }}</td></tr>
     <tr><td>Total Remaining</td><td>{{ $totalRemaining }}</td></tr>
 </table>
 
-{{-- Details Table --}}
+{{-- Details --}}
 <table>
     <thead>
         <tr>
             <th>#</th>
             <th>Date</th>
-            <th>Buns</th>
-            <th>Small Breads</th>
-            <th>Big Breads</th>
-            <th>Donuts</th>
-            <th>Half Cakes</th>
-            <th>Block Cakes</th>
-            <th>Slab Cakes</th>
-            <th>Birthday Cakes</th>
+            <th>Product</th>
             <th>Produced</th>
             <th>Used</th>
             <th>Remaining</th>
         </tr>
     </thead>
     <tbody>
-   @foreach($items as $row)
-<tr>
-    <td>{{ $loop->iteration }}</td>
-    <td>{{ $row->production_date->format('d/m/Y') }}</td>
-    <td>{{ ucfirst(str_replace('_',' ',$row->product)) }}</td>
-    <td>{{ $row->produced_qty }}</td>
-    <td>{{ $row->used_qty }}</td>
-    <td>{{ $row->remaining_qty }}</td>
-</tr>
-@endforeach
-
+        @foreach($items as $row)
+        <tr>
+            <td>{{ $loop->iteration }}</td>
+            <td>{{ \Carbon\Carbon::parse($row->production_date)->format('d/m/Y') }}</td>
+            <td>{{ ucfirst(str_replace('_',' ',$row->product)) }}</td>
+            <td>{{ $row->produced_qty }}</td>
+            <td>{{ $row->used_qty }}</td>
+            <td>{{ $row->remaining_qty }}</td>
+        </tr>
+        @endforeach
     </tbody>
 </table>
-
 </body>
 </html>

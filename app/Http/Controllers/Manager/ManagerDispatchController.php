@@ -17,19 +17,45 @@ class ManagerDispatchController extends Controller
     $perPage = 20;
     $searchDriver = $request->input('driver');
 
-    $query = Dispatch::with('driver','items')->latest();
+    // Get all dispatches with driver & items
+    $query = Dispatch::with('driver', 'items')
+        ->orderBy('dispatch_date', 'desc')
+        ->orderBy('dispatch_no', 'desc');
 
     if ($searchDriver) {
-        $query->whereHas('driver', fn($q) => $q->where('name', 'like', "%$searchDriver%"));
+        $query->whereHas('driver', fn($q) =>
+            $q->where('name', 'like', "%$searchDriver%")
+        );
     }
 
-    $dispatches = $query->paginate($perPage);
+    $allDispatches = $query->get();
+
+    // Keep only latest dispatch per driver
+    $driverLatest = [];
+    foreach ($allDispatches as $dispatch) {
+        if (!isset($driverLatest[$dispatch->driver_id])) {
+            $driverLatest[$dispatch->driver_id] = $dispatch;
+        }
+    }
+
+    $dispatches = collect($driverLatest)->values();
+
+    // Manual pagination
+    $page = $request->input('page', 1);
+    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $dispatches->forPage($page, $perPage)->values(),
+        $dispatches->count(),
+        $perPage,
+        $page,
+        ['path' => $request->url(), 'query' => $request->query()]
+    );
 
     return view('manager.dispatches.index', [
-        'dispatches'   => $dispatches,
-        'searchDriver' => $searchDriver, // ✅ fix
+        'dispatches'   => $paginated,
+        'searchDriver' => $searchDriver,
     ]);
 }
+
 
 
     public function create()
@@ -196,6 +222,55 @@ protected function computeOpenings(int $driverId, string $date, ?int $currentDis
     }
 
     return $openings;
+}
+
+    protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float
+{
+    // fallbacks so it never crashes if config is missing
+    $rates = config('commissions.rates', [
+        'big_breads'     => 200,
+        'small_breads'   => 100,
+        'buns'           => 200,
+        'donuts'         => 100,
+        'half_cakes'     => 100,
+        'block_cakes'    => 200,
+        'slab_cakes'     => 200,
+        'birthday_cakes' => 200,
+    ]);
+    $threshold = (float) config('commissions.threshold', 1_000_000);
+    $basis     = config('commissions.threshold_basis', 'available'); // available|dispatched|sold
+
+    // 1) compute basis value (UGX)
+    $basisValue = 0.0;
+    foreach ($lines as $row) {
+        $unit = (float) $row['unit_price'];
+        $opening    = (int) ($row['opening_stock'] ?? 0);
+        $dispatched = (int) ($row['dispatched_qty'] ?? 0);
+        $sold       = (int) ($row['sold_qty'] ?? 0);
+
+        $qtyForBasis = match ($basis) {
+            'dispatched' => $dispatched,
+            'sold'       => $sold,
+            default      => $opening + $dispatched, // 'available'
+        };
+
+        $basisValue += $qtyForBasis * $unit;
+    }
+
+    // 2) decide full vs half rate
+    $multiplier = ($basisValue >= $threshold) ? 1.0 : 0.5;
+
+    // 3) per-line commission AND return total
+    $commissionTotal = 0.0;
+    foreach ($lines as &$row) {
+        $rate = (float) ($rates[$row['product']] ?? 0);
+        $perPiece = $rate * $multiplier;
+        $row['commission'] = round($row['sold_qty'] * $perPiece, 2);
+        $commissionTotal  += $row['commission'];
+    }
+    unset($row);
+
+    return round($commissionTotal, 2);
 }
 
 

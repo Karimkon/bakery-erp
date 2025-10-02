@@ -63,7 +63,12 @@
 <table class="table table-bordered table-striped">
     <thead>
         <tr>
-            <th>#</th><th>Date</th><th>Product</th><th>Produced</th><th>Used</th><th>Remaining</th>
+            <th>#</th>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Produced</th>
+            <th>Used</th>
+            <th>Remaining</th>
         </tr>
     </thead>
     <tbody>
@@ -79,4 +84,5 @@
         @endforeach
     </tbody>
 </table>
+
 @endsection
