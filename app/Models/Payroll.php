@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Payroll extends Model
 {
     protected $fillable = [
-        'user_id', 'pay_month', 'base_salary', 'commission', 'total_salary', 'status'
+        'user_id', 'employee_name', 'pay_month', 'base_salary', 'commission', 'total_salary', 'status'
     ];
 
     protected $casts = [

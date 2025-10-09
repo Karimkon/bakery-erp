@@ -61,7 +61,7 @@
     <tbody>
         @forelse($payrolls as $pay)
         <tr>
-            <td>{{ $pay->user->name }}</td>
+            <td>{{ $pay->employee_name ?? ($pay->user->name ?? '-') }}</td>
             <td>{{ $pay->pay_month->format('F Y') }}</td>
             <td>{{ number_format($pay->base_salary,0) }}</td>
             <td>{{ number_format($pay->commission,0) }}</td>

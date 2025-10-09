@@ -15,7 +15,7 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h5 class="mb-3">Sale Details</h5>
-                    <form method="POST" action="{{ route('sales.sales.store') }}" id="posForm">
+                    <form method="POST" action="{{ route('sales.sales.store') }}" target="_blank" id="posForm">
                         @csrf
 
                         <div class="row g-3">
@@ -166,8 +166,6 @@
 
             let data = await res.json();
             if(res.ok){
-                alert(data.success);
-
                 // Update the stock badge live
                 let card = document.querySelector('.pos-card[data-ptype="'+data.product+'"]');
                 if(card){
@@ -175,11 +173,16 @@
                     card.querySelector('.badge').textContent = "Stock: " + data.remaining;
                 }
 
+                // Open receipt in a new tab
+                window.open("/sales/receipt/" + data.id, '_blank');
+
                 // Reset form
                 form.reset();
                 total.value = "";
                 stockInfo.textContent = "";
-            } else {
+            }
+
+            else {
                 alert(data.error || "Error processing sale.");
             }
         } catch(err){

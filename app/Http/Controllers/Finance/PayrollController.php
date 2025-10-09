@@ -48,7 +48,7 @@ class PayrollController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'employee_name' => 'required|string|max:255',
             'pay_month' => 'required|date',
             'base_salary' => 'required|numeric',
             'commission' => 'nullable|numeric',

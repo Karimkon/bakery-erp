@@ -15,6 +15,7 @@ use App\Http\Controllers\Sales\ShopStockController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Manager\ManagerDashboardController;
 use App\Http\Controllers\Manager\ManagerReportsController;
+use App\Http\Controllers\Admin\AdminDamageController;
 
 
 
@@ -189,6 +190,15 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::get('reports/export-excel', [ReportsController::class,'exportExcel'])->name('reports.exportExcel');
 
 
+    Route::get('damages', [AdminDamageController::class, 'index'])->name('damages.index');
+    Route::get('damages/{damage}', [AdminDamageController::class, 'show'])->name('damages.show');
+    Route::post('damages/{damage}/approve', [AdminDamageController::class, 'approve'])->name('damages.approve');
+    Route::post('damages/{damage}/reject', [AdminDamageController::class, 'reject'])->name('damages.reject');
+    Route::post('damages/{damage}/sold', [AdminDamageController::class, 'markAsSold'])->name('damages.sold');
+    Route::delete('damages/{damage}', [\App\Http\Controllers\Admin\AdminDamageController::class, 'destroy'])
+    ->name('damages.destroy');
+
+
     
 });
 
@@ -204,6 +214,8 @@ Route::middleware(['auth','role:sales'])->prefix('sales')->name('sales.')->group
     Route::resource('sales', SaleController::class)->only(['index','create','store','edit','update','destroy','show']);
     Route::resource('bankings', BankingController::class)->only(['index','create','store','edit','update','destroy','show']);
     Route::get('stock', [ShopStockController::class,'index'])->name('stock.index');
+     Route::get('receipt/{id}', [SaleController::class, 'receipt'])->name('sales.receipt');
+    Route::get('summary/daily', [SaleController::class, 'dailySummary'])->name('sales.summary.daily');
 });
 
 Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')->group(function () {
@@ -250,7 +262,20 @@ Route::get('production/export-excel', [ManagerReportsController::class, 'exportE
     // Ingredients Management
     Route::resource('ingredients', App\Http\Controllers\Manager\ManagerIngredientController::class);
 
+    Route::get('damages', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'index'])
+        ->name('damages.index');
+
+    Route::get('damages/create', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'create'])
+        ->name('damages.create');
+
+    Route::post('damages', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'store'])
+        ->name('damages.store');
+
+    Route::get('damages/{damage}', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'show'])
+    ->name('damages.show');
     });
+
+    
 
 
 

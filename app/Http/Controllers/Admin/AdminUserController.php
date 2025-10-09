@@ -25,6 +25,7 @@ class AdminUserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
+            'phone' => 'required|string|max:15|unique:users',
             'role' => 'required|in:admin,chef,sales,finance,driver,manager',
             'password' => 'required|min:6|confirmed',
         ]);
@@ -51,6 +52,7 @@ class AdminUserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,'.$user->id,
+            'phone' => 'required|string|max:15|unique:users,phone,'.$user->id, 
             'role' => 'required|in:admin,chef,sales,finance,driver,manager',
             'password' => 'nullable|min:6|confirmed',
             'back_debt' => 'nullable|numeric|min:0',

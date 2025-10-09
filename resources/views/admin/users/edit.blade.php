@@ -14,6 +14,12 @@
     </div>
 
     <div class="mb-3">
+        <label>Phone</label>
+        <input type="text" name="phone" value="{{ old('phone', $user->phone) }}" class="form-control" required>
+    </div>
+
+
+    <div class="mb-3">
         <label>Back Debt (UGX)</label>
         @if($user->role == 'driver')
             <input type="number" name="back_debt" value="{{ old('back_debt', $user->back_debt) }}" class="form-control" min="0">

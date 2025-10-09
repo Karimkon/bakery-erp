@@ -75,12 +75,38 @@ class SaleController extends Controller
                 'success'   => "Sale of {$sale->quantity} {$sale->product_type} recorded.",
                 'remaining' => $stock->remaining,
                 'product'   => $sale->product_type,
+                'id'        => $sale->id,
             ]);
         }
 
         return redirect()->route('sales.sales.index')
             ->with('success', "Sale recorded. Remaining stock: {$stock->remaining}");
     }
+
+    public function receipt($id)
+    {
+        $sale = Sale::with('user')->findOrFail($id);
+
+        return view('sales.sales.receipt', compact('sale'));
+    }
+
+
+    public function dailySummary()
+{
+    $userId = auth()->id();
+    $today  = now()->toDateString();
+
+    $sales = Sale::where('user_id', $userId)
+        ->whereDate('created_at', $today)
+        ->get();
+
+    $totalCash = $sales->where('payment_method', 'cash')->sum('total_price');
+    $totalMomo = $sales->where('payment_method', 'momo')->sum('total_price');
+    $totalAll  = $sales->sum('total_price');
+
+    return view('sales.sales.summary', compact('sales', 'totalCash', 'totalMomo', 'totalAll', 'today'));
+}
+
 
 
     public function show(Sale $sale)

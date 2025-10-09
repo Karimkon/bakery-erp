@@ -23,6 +23,13 @@
                        class="form-control @error('email') is-invalid @enderror" required>
                 @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
+            
+            <div class="mb-3">
+                <label for="phone" class="form-label">Phone <span class="text-danger">*</span></label>
+                <input type="text" id="phone" name="phone" value="{{ old('phone') }}" 
+                    class="form-control @error('phone') is-invalid @enderror" required>
+                @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
 
             <div class="mb-3">
                 <label for="role" class="form-label">Role <span class="text-danger">*</span></label>

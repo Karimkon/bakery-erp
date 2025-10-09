@@ -154,6 +154,11 @@ body {
             <i class="bi bi-box-seam"></i> Ingredients
         </a>
 
+        <a href="{{ route('manager.damages.index') }}" class="{{ request()->routeIs('manager.damages.*') ? 'active' : '' }}">
+            <i class="bi bi-exclamation-triangle"></i> Damages
+        </a>
+
+
         <a href="{{ route('manager.production.index') }}" class="{{ request()->routeIs('manager.production.*') ? 'active' : '' }}">
             <i class="bi bi-bar-chart-line"></i> Production Reports
         </a>

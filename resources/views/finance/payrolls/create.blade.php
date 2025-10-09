@@ -8,19 +8,15 @@
     <form method="POST" action="{{ route('finance.payrolls.store') }}">
         @csrf
 
-        <!-- Employee -->
-        <div class="mb-3">
-            <label class="form-label">Employee</label>
-            <select name="user_id" class="form-select" required>
-                <option value="">-- Select Employee --</option>
-                @foreach($users as $user)
-                    <option value="{{ $user->id }}" {{ old('user_id') == $user->id ? 'selected':'' }}>
-                        {{ $user->name }}
-                    </option>
-                @endforeach
-            </select>
-            @error('user_id') <small class="text-danger">{{ $message }}</small> @enderror
-        </div>
+        <!-- Employee Name -->
+    <div class="mb-3">
+        <label class="form-label">Employee Name</label>
+        <input type="text" name="employee_name" class="form-control" 
+            placeholder="Type employee name" 
+            value="{{ old('employee_name') }}" required>
+        @error('employee_name') <small class="text-danger">{{ $message }}</small> @enderror
+    </div>
+
 
         <!-- Pay Month -->
         <div class="mb-3">

@@ -333,6 +333,22 @@ body {
                 </div>
             </div>
 
+            <div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#damagesCollapse">
+            <i class="bi bi-exclamation-triangle"></i> Damages
+        </button>
+    </h2>
+    <div id="damagesCollapse" class="accordion-collapse collapse {{ request()->is('admin/damages*') ? 'show' : '' }}">
+        <div class="accordion-body">
+            <a href="{{ route('admin.damages.index') }}" class="{{ request()->routeIs('admin.damages.*') ? 'active' : '' }}">
+                <i class="bi bi-list-check"></i> All Damages
+            </a>
+        </div>
+    </div>
+</div>
+
+
             <!-- Banking -->
             <div class="accordion-item">
                 <h2 class="accordion-header">
