@@ -37,7 +37,7 @@
             <th>Opening</th>
             <th>Dispatched</th>
             <th>Sold Cash</th>
-            <th>Sold Credit</th>
+            <!-- <th>Sold Credit</th> -->
             <th>Total Sold</th>
             <th>Remaining</th>
             <th>Unit Price</th>
@@ -64,7 +64,7 @@
                 <td>{{ number_format($it->opening_stock) }}</td>
                 <td>{{ number_format($it->dispatched_qty) }}</td>
                 <td>{{ number_format($it->sold_cash ?? 0) }}</td>
-                <td>{{ number_format($it->sold_credit ?? 0) }}</td>
+                <!-- <td>{{ number_format($it->sold_credit ?? 0) }}</td> -->
                 <td>{{ number_format($it->sold_qty) }}</td>
                 <td>{{ number_format($it->remaining_qty) }}</td>
                 <td>{{ number_format($it->unit_price, 0) }}</td>

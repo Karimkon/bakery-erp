@@ -53,7 +53,7 @@
         <th>Available in Bakery</th>
         <th>Dispatched</th>
         <th>Sold (Cash)</th>
-        <th>Sold (Credit)</th>
+        <!-- <th>Sold (Credit)</th> -->
     </tr>
 </thead>
 <tbody>
@@ -81,9 +81,9 @@
         <td>
             <input type="number" class="form-control sold-cash" name="items[{{ $product }}][sold_cash]" min="0">
         </td>
-        <td>
+        <!-- <td>
             <input type="number" class="form-control sold-credit" name="items[{{ $product }}][sold_credit]" min="0">
-        </td>
+        </td> -->
     </tr>
     @endforeach
 </tbody>

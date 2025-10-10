@@ -60,4 +60,31 @@ class ManagerDamageController extends Controller
     return view('manager.damages.show', compact('damage'));
 }
 
+public function markAsSold(Request $request, Damage $damage)
+{
+    // Only allow if damage is approved
+    if ($damage->status !== 'approved') {
+        return redirect()->back()->with('error', 'Cannot sell. Damage not approved.');
+    }
+
+    $request->validate([
+        'sold_quantity' => "required|integer|min:1|max:{$damage->quantity}",
+        'sold_price' => 'required|numeric|min:0',
+    ]);
+
+    $soldQuantity = $request->sold_quantity;
+    $soldPrice = $request->sold_price;
+
+    $damage->sold_quantity = ($damage->sold_quantity ?? 0) + $soldQuantity;
+    $damage->quantity -= $soldQuantity;
+    $damage->status = $damage->quantity == 0 ? 'sold' : 'approved';
+    $damage->approved_price = $soldPrice;
+    $damage->save();
+
+    $totalReceived = $soldQuantity * $soldPrice;
+
+    return redirect()->route('manager.damages.index')
+        ->with('success', "Sold {$soldQuantity} units of {$damage->product} at {$soldPrice} each. Total received: {$totalReceived}");
+}
+
 }

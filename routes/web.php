@@ -273,7 +273,12 @@ Route::get('production/export-excel', [ManagerReportsController::class, 'exportE
 
     Route::get('damages/{damage}', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'show'])
     ->name('damages.show');
+
+    // web.php
+Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'markAsSold'])->name('damages.sold');
+
     });
+
 
     
 
