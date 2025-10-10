@@ -332,13 +332,18 @@ public function update(Request $request, $id)
         $itemsArray = $dispatch->items->toArray();
         $commissionTotal = $this->computeCommissionStuff($itemsArray, $totalSalesValue);
 
-        // Update driver's back debt if they paid more than their credit sales
+        // Update driver's back debt based on shortfall from actual cash received
         $driver = $dispatch->driver;
-        if ($actualCashReceived > $creditSalesValue) {
-            $overPayment = $actualCashReceived - $creditSalesValue;
-            $driver->back_debt = max(0, $driver->back_debt - $overPayment);
-            $driver->save();
+        $shortfall = $calculatedCashReceived - $actualCashReceived;
+
+        if($shortfall > 0){
+            $driver->back_debt += $shortfall;
+        } else if ($shortfall < 0) {
+            // If manager entered more than calculated cash, reduce back debt
+            $driver->back_debt = max(0, $driver->back_debt + $shortfall); // shortfall negative here
         }
+        $driver->save();
+
 
         $dispatch->update([
             'notes'             => $request->notes,

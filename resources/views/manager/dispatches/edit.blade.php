@@ -56,7 +56,7 @@
                     <th>All Remaining items</th>
                     <th>Dispatched</th>
                     <th>Qty Sold (Cash)</th>
-                    <th>Qty Sold (Credit)</th>
+                    <!-- <th>Qty Sold (Credit)</th> -->
                     <th>Commission</th>
                 </tr>
             </thead>
@@ -70,6 +70,7 @@
                         $soldCredit = old("items.$product.sold_credit", $row?->sold_credit ?? 0);
                         $remaining  = ($opening + $dispatched) - ($soldCash + $soldCredit);
                         $commission = $row?->commission ?? 0;
+                        $maxSold = $opening + $dispatched;
                     @endphp
                     <tr data-product="{{ $product }}">
                         <td>
@@ -91,13 +92,14 @@
                         <td>
                             <input type="number" class="form-control sold-cash"
                                    name="items[{{ $product }}][sold_cash]"
-                                   value="{{ $soldCash }}">
+                                   value="{{ $soldCash }}"
+                                   min="0" max="{{ $maxSold - $soldCredit }}">
                         </td>
-                        <td>
+                        <!-- <td>
                             <input type="number" class="form-control sold-credit"
                                    name="items[{{ $product }}][sold_credit]"
                                    value="{{ $soldCredit }}">
-                        </td>
+                        </td> -->
                         <td class="commission-col">{{ number_format($commission,0) }}</td>
                     </tr>
                 @endforeach
@@ -109,6 +111,8 @@
     <input type="hidden" name="commission_total" id="commission_total">
     <input type="hidden" name="total_sales_value" id="total_sales_value">
     <input type="hidden" name="total_items_sold" id="total_items_sold">
+    <input type="hidden" name="back_debt" id="back_debt" value="{{ old('back_debt', $driver->back_debt ?? 0) }}">
+
 
     <div class="row g-3 mt-3">
         <!-- Calculated Cash Received (readonly, computed by JS) -->
@@ -143,48 +147,73 @@
 $(function () {
     $('.select2').select2({ placeholder: 'Search driver' });
 
-    function parseIntSafe(x) { return Number.isFinite(Number(x)) ? parseInt(x) : 0; }
-    function parseFloatSafe(x) { return Number.isFinite(Number(x)) ? parseFloat(x) : 0; }
+    const threshold = Number(@json(config('commissions.threshold'))) || 0;
+    const rates = @json(config('commissions.rates'));
+    const thresholdBasis = @json(config('commissions.threshold_basis')) || 'available';
 
-    function recomputeRow($row) {
+    function parseIntSafe(x){ return Number.isFinite(Number(x)) ? parseInt(x) : 0; }
+    function parseFloatSafe(x){ return Number.isFinite(Number(x)) ? parseFloat(x) : 0; }
+
+    function recomputeRow($row){
         const opening = parseIntSafe($row.find('.opening-stock').val());
-        let dispatched = parseIntSafe($row.find('.dispatched-qty').val());
+        const dispatched = parseIntSafe($row.find('.dispatched-qty').val());
         let soldCash = parseIntSafe($row.find('.sold-cash').val());
         let soldCredit = parseIntSafe($row.find('.sold-credit').val());
+        const maxAvailable = opening + dispatched;
+
+        // Clamp sold
+        let totalSold = soldCash + soldCredit;
+        if(totalSold > maxAvailable){
+            soldCash = Math.min(soldCash, maxAvailable);
+            soldCredit = maxAvailable - soldCash;
+        }
+
+        $row.find('.sold-cash').val(soldCash);
+        $row.find('.sold-credit').val(soldCredit);
 
         // Remaining
-        const remaining = (opening + dispatched) - (soldCash + soldCredit);
+        const remaining = maxAvailable - (soldCash + soldCredit);
         $row.find('.remaining-col').text(remaining);
 
         // Commission
         const product = $row.data('product');
+        const unitPrice = parseIntSafe($row.find('td div.text-muted').text().replace(/\D/g,''));
         const soldQty = soldCash + soldCredit;
-        const rates = @json(config('commissions.rates'));
-        const threshold = Number(@json(config('commissions.threshold'))) || 0;
-        
-        let totalAvailableValue = 0;
+
+        let qtyForBasis = 0;
+        switch(thresholdBasis){
+            case 'sold': qtyForBasis = soldQty; break;
+            case 'dispatched': qtyForBasis = dispatched; break;
+            default: qtyForBasis = opening + dispatched;
+        }
+
+        // Compute multiplier
+        let basisValue = 0;
         $('tbody tr').each(function(){
-            const op = parseIntSafe($(this).find('.opening-stock').val());
-            const dis = parseIntSafe($(this).find('.dispatched-qty').val());
-            const unitPrice = parseIntSafe($(this).find('td div.text-muted').text().replace(/\D/g,''));
-            totalAvailableValue += (op + dis) * unitPrice;
+            const r = $(this);
+            const op = parseIntSafe(r.find('.opening-stock').val());
+            const dis = parseIntSafe(r.find('.dispatched-qty').val());
+            const sold = parseIntSafe(r.find('.sold-cash').val()) + parseIntSafe(r.find('.sold-credit').val());
+            let q = (thresholdBasis === 'sold') ? sold :
+                    (thresholdBasis === 'dispatched') ? dis : op + dis;
+            const price = parseIntSafe(r.find('td div.text-muted').text().replace(/\D/g,''));
+            basisValue += q * price;
         });
-        
-        const multiplier = totalAvailableValue >= threshold ? 1 : 0.5;
+        const multiplier = (basisValue >= threshold) ? 1 : 0.5;
+
         const rate = rates[product] ?? 0;
-        const commission = soldQty * rate * multiplier;
-        $row.find('.commission-col').text(Math.round(commission).toLocaleString());
+        const commission = Math.round(soldQty * rate * multiplier);
+
+        $row.find('.commission-col').text(commission.toLocaleString());
 
         // Hidden commission
-        let hiddenCommission = $row.find('input[name*="[commission]"]');
-        if(!hiddenCommission.length) {
+        let $hidden = $row.find(`input[name="items[${product}][commission]"]`);
+        if(!$hidden.length){
             $row.append(`<input type="hidden" name="items[${product}][commission]" value="${commission}">`);
-        } else {
-            hiddenCommission.val(commission);
-        }
+        } else { $hidden.val(commission); }
     }
 
-    function recomputeTotals() {
+    function recomputeTotals(){
         let calculatedCashReceived = 0;
         let totalSales = 0;
         let totalItemsSold = 0;
@@ -193,57 +222,57 @@ $(function () {
         let creditSalesValue = 0;
 
         $('tbody tr').each(function(){
-            const $row = $(this);
-            const soldCash = parseIntSafe($row.find('.sold-cash').val());
-            const soldCredit = parseIntSafe($row.find('.sold-credit').val());
-            const opening = parseIntSafe($row.find('.opening-stock').val());
-            const dispatched = parseIntSafe($row.find('.dispatched-qty').val());
-            const unitPrice = parseIntSafe($row.find('td div.text-muted').text().replace(/\D/g,''));
-            const commission = parseIntSafe($row.find('input[name*="[commission]"]').val());
-            
-            const soldTotal = soldCash + soldCredit;
-            const remaining = (opening + dispatched) - soldTotal;
-            
+            const r = $(this);
+            const soldCash = parseIntSafe(r.find('.sold-cash').val());
+            const soldCredit = parseIntSafe(r.find('.sold-credit').val());
+            const opening = parseIntSafe(r.find('.opening-stock').val());
+            const dispatched = parseIntSafe(r.find('.dispatched-qty').val());
+            const unitPrice = parseIntSafe(r.find('td div.text-muted').text().replace(/\D/g,''));
+            const commission = parseIntSafe(r.find(`input[name*="[commission]"]`).val());
+
+            const totalSold = soldCash + soldCredit;
+            const remaining = (opening + dispatched) - totalSold;
+
             calculatedCashReceived += soldCash * unitPrice;
             creditSalesValue += soldCredit * unitPrice;
-            totalSales += soldTotal * unitPrice;
-            totalItemsSold += soldTotal;
+            totalSales += totalSold * unitPrice;
+            totalItemsSold += totalSold;
             commissionTotal += commission;
             remainingInventoryValue += remaining * unitPrice;
         });
 
-        // Update calculated cash received (readonly)
         $('#calculated_cash_received').val(calculatedCashReceived.toFixed(2));
 
-        // Get actual cash received (user input or default to calculated)
         let actualCashReceived = parseFloatSafe($('#actual_cash_received').val());
-        if (actualCashReceived === 0 || $('#actual_cash_received').val() === '') {
-            actualCashReceived = calculatedCashReceived;
-        }
+        if(!actualCashReceived) actualCashReceived = calculatedCashReceived;
 
-        // Balance due = Credit sales + Remaining inventory - (Actual cash - Total sales including credit)
-        // Simplified: Balance due = Remaining inventory value + Credit sales value
-        const balanceDue = remainingInventoryValue + creditSalesValue;
-        
+        // Back debt
+        let backDebt = parseFloatSafe($('#back_debt').val());
+        let shortfall = calculatedCashReceived - actualCashReceived;
+
+        if(shortfall > 0) backDebt += shortfall;
+        else if(shortfall < 0) backDebt = Math.max(0, backDebt + shortfall);
+
+        $('#back_debt').val(backDebt.toFixed(2));
+
+        // Balance due
+        const balanceDue = remainingInventoryValue + creditSalesValue + backDebt - actualCashReceived;
         $('#balance_due_display').val(balanceDue.toFixed(2));
+
         $('#commission_total').val(commissionTotal);
         $('#total_sales_value').val(totalSales);
         $('#total_items_sold').val(totalItemsSold);
     }
 
-    // Recompute when items change
+    // Events
     $('table').on('input change', '.sold-cash, .sold-credit', function(){
         const $row = $(this).closest('tr');
         recomputeRow($row);
         recomputeTotals();
     });
 
-    // Recompute balance due when actual cash received changes
-    $('#actual_cash_received').on('input change', function(){
-        recomputeTotals();
-    });
+    $('#actual_cash_received').on('input change', recomputeTotals);
 
-    // Initial computation
     $('tbody tr').each(function(){ recomputeRow($(this)); });
     recomputeTotals();
 
@@ -253,36 +282,28 @@ $(function () {
     const existingSig = $('#driver_signature').val();
     if(existingSig){
         const img = new Image();
-        img.onload = function(){
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            ctx.beginPath();
-        };
+        img.onload = function(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); };
         img.src = existingSig;
     }
     let drawing = false;
-    canvas.addEventListener('mousedown', () => drawing = true);
-    canvas.addEventListener('mouseup', () => drawing = false);
-    canvas.addEventListener('mouseleave', () => drawing = false);
+    canvas.addEventListener('mousedown', ()=>drawing=true);
+    canvas.addEventListener('mouseup', ()=>drawing=false);
+    canvas.addEventListener('mouseleave', ()=>drawing=false);
     canvas.addEventListener('mousemove', draw);
     function draw(e){
         if(!drawing) return;
         const rect = canvas.getBoundingClientRect();
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#000';
-        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.lineWidth = 2; ctx.lineCap='round'; ctx.strokeStyle='#000';
+        ctx.lineTo(e.clientX-rect.left, e.clientY-rect.top);
+        ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX-rect.left, e.clientY-rect.top);
     }
-    $('#clear-signature').on('click', ()=>{
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        $('#driver_signature').val('');
-    });
+    $('#clear-signature').on('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); $('#driver_signature').val(''); });
+
     $('form').on('submit', function(){
+        if(!$('#actual_cash_received').val()) $('#actual_cash_received').val($('#calculated_cash_received').val());
         $('#driver_signature').val(canvas.toDataURL());
     });
 });
 </script>
+
 @endpush

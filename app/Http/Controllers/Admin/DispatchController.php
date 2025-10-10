@@ -83,10 +83,6 @@ class DispatchController extends Controller
         if (!User::where('id', $request->driver_id)->where('role','driver')->exists()) {
             return back()->withErrors(['driver_id' => 'Selected user is not a driver'])->withInput();
         }
-        // determine next dispatch_no for this driver on this date
-        $nextNo = (Dispatch::where('driver_id', $request->driver_id)
-             ->where('dispatch_date', $request->dispatch_date)
-             ->max('dispatch_no') ?? 0) + 1;
 
 
         // Helper: compute opening from previous day record
@@ -146,6 +142,12 @@ class DispatchController extends Controller
 
 
         DB::transaction(function () use ($request, $lines, $totalItemsSold, $totalSalesValue, $commissionTotal, $cashReceived, $balanceDue, $nextNo) {
+         
+        $nextNo = Dispatch::where('driver_id', $request->driver_id)
+            ->where('dispatch_date', $request->dispatch_date)
+            ->lockForUpdate()
+            ->max('dispatch_no') + 1;
+
         $dispatch = Dispatch::create([
             'driver_id'         => $request->driver_id,
             'dispatch_date'     => $request->dispatch_date,
@@ -166,12 +168,14 @@ class DispatchController extends Controller
 
                 // ✅ Deduct bakery stock
                 $stock = \App\Models\BakeryStock::where('product', $row['product'])->first();
-                if ($stock) {
-                    if ($row['dispatched_qty'] > $stock->quantity) {
-                        throw new \Exception("Not enough bakery stock for {$row['product']}");
-                    }
-                    $stock->decrement('quantity', $row['dispatched_qty']);
+                if (!$stock && $row['dispatched_qty'] > 0) {
+                    throw new \Exception("No stock record found for {$row['product']} — cannot dispatch non-existent stock.");
                 }
+                if ($row['dispatched_qty'] > $stock->quantity) {
+                    throw new \Exception("Not enough bakery stock for {$row['product']}");
+                }
+                $stock->decrement('quantity', $row['dispatched_qty']);
+
             }
 
         });
@@ -288,8 +292,13 @@ public function update(Request $request, Dispatch $dispatch)
             ]);
         }
 
-        $commissionTotal = collect($lines)->sum(fn($l)=> (float)($l['commission'] ?? 0));
-        $balanceDue = $totalSalesValue - $cashReceived;
+        $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
+
+        // ✅ Corrected in update()
+        $balanceDue = 0;
+        foreach ($lines as $line) {
+            $balanceDue += $line['remaining_qty'] * $line['unit_price'];
+        }
 
         $dispatch->update([
             'driver_id' => $request->driver_id,

@@ -43,7 +43,15 @@
             <td>{{ number_format($d->total_items_sold) }}</td>
             <td>{{ number_format($d->total_sales_value, 0) }}</td>
             <td>{{ number_format($d->cash_received, 0) }}</td>
-            <td>{{ number_format($d->balance_due, 0) }}</td>
+            
+            @php
+            $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+            $driverBackDebt = $d->driver?->back_debt ?? 0;
+            $totalBalanceDue = $remainingInventoryValue + $driverBackDebt + $d->credit_sales_value; // or $d->balance_due depending on calculation
+            @endphp
+            <td>{{ number_format($totalBalanceDue, 0) }}</td>
+
+
 
             <td class="d-flex gap-2">
                 <a href="{{ route('manager.dispatches.show',$d->id) }}" class="btn btn-sm btn-outline-primary">
