@@ -5,68 +5,66 @@ namespace App\Http\Controllers\Manager;
 use App\Http\Controllers\Controller;
 use App\Models\Dispatch;
 use App\Models\DispatchItem;
+use App\Models\DriverExpense;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage; 
 
 class ManagerDispatchController extends Controller
 {
-
     public function index(Request $request)
-{
-    $perPage = 20;
-    $searchDriver = $request->input('driver');
+    {
+        $perPage = 20;
+        $searchDriver = $request->input('driver');
 
-    $query = Dispatch::with('driver', 'items')
-        ->orderBy('dispatch_date', 'desc')
-        ->orderBy('dispatch_no', 'desc');
+        $query = Dispatch::with('driver', 'items')
+            ->orderBy('dispatch_date', 'desc')
+            ->orderBy('dispatch_no', 'desc');
 
-    if ($searchDriver) {
-        $query->whereHas('driver', fn($q) =>
-            $q->where('name', 'like', "%$searchDriver%")
+        if ($searchDriver) {
+            $query->whereHas('driver', fn($q) =>
+                $q->where('name', 'like', "%$searchDriver%")
+            );
+        }
+
+        $allDispatches = $query->get();
+
+        $driverLatest = [];
+        foreach ($allDispatches as $dispatch) {
+            if (!isset($driverLatest[$dispatch->driver_id])) {
+                $driverLatest[$dispatch->driver_id] = $dispatch;
+            }
+        }
+
+        foreach ($driverLatest as $driverId => $dispatch) {
+            $remainingInventoryValue = 0;
+            $creditSalesValue = 0;
+            
+            foreach ($dispatch->items as $item) {
+                $remainingInventoryValue += $item->remaining_qty * $item->unit_price;
+                $creditSalesValue += $item->sold_credit * $item->unit_price;
+            }
+            
+            $dispatch->balance_due = $remainingInventoryValue + $creditSalesValue;
+        }
+
+        $dispatches = collect($driverLatest)->values();
+
+        $page = $request->input('page', 1);
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $dispatches->forPage($page, $perPage)->values(),
+            $dispatches->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
         );
+
+        return view('manager.dispatches.index', [
+            'dispatches'   => $paginated,
+            'searchDriver' => $searchDriver,
+        ]);
     }
-
-    $allDispatches = $query->get();
-
-    // Keep only latest dispatch per driver
-    $driverLatest = [];
-    foreach ($allDispatches as $dispatch) {
-        if (!isset($driverLatest[$dispatch->driver_id])) {
-            $driverLatest[$dispatch->driver_id] = $dispatch;
-        }
-    }
-
-    // Compute accurate balance_due for each dispatch
-    foreach ($driverLatest as $driverId => $dispatch) {
-        $remainingInventoryValue = 0;
-        $creditSalesValue = 0;
-        
-        foreach ($dispatch->items as $item) {
-            $remainingInventoryValue += $item->remaining_qty * $item->unit_price;
-            $creditSalesValue += $item->sold_credit * $item->unit_price;
-        }
-        
-        // Balance due = Remaining inventory value + Credit sales value
-        $dispatch->balance_due = $remainingInventoryValue + $creditSalesValue;
-    }
-
-    $dispatches = collect($driverLatest)->values();
-
-    $page = $request->input('page', 1);
-    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-        $dispatches->forPage($page, $perPage)->values(),
-        $dispatches->count(),
-        $perPage,
-        $page,
-        ['path' => $request->url(), 'query' => $request->query()]
-    );
-
-    return view('manager.dispatches.index', [
-        'dispatches'   => $paginated,
-        'searchDriver' => $searchDriver,
-    ]);
-}
 
     public function create()
     {
@@ -109,10 +107,9 @@ class ManagerDispatchController extends Controller
             $available   = $opening + $dispatched;
 
             if ($dispatched > $available) {
-            return back()->withErrors(["items.$product.dispatched_qty" =>
-                "Cannot dispatch more ($dispatched) than available in bakery stock ($available) for $product."])->withInput();
-        }
-
+                return back()->withErrors(["items.$product.dispatched_qty" =>
+                    "Cannot dispatch more ($dispatched) than available in bakery stock ($available) for $product."])->withInput();
+            }
 
             $remaining = $available - $sold;
             $unitPrice = (float) $price;
@@ -186,6 +183,205 @@ class ManagerDispatchController extends Controller
         return response()->json(['success' => true, 'openings' => $openings]);
     }
 
+    public function edit($id)
+    {
+        $dispatch = Dispatch::with('items', 'driver')->findOrFail($id);
+        $drivers = User::where('role', 'driver')->get();
+        $products = config('bakery_products');
+        $openings = $this->computeOpenings((int)$dispatch->driver_id, $dispatch->dispatch_date->toDateString(), $dispatch->id);
+
+        return view('manager.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
+    }
+
+    public function update(Request $request, $id)
+{
+    $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
+    $products = config('bakery_products');
+
+    $request->validate([
+        'items' => ['required', 'array'],
+        'notes' => ['nullable', 'string'],
+        'cash_received' => ['nullable', 'numeric', 'min:0'],
+        'driver_signature' => ['nullable', 'string'],
+        'expenses' => ['nullable', 'array'],
+        'expenses.*.expense_type' => ['required_with:expenses.*.amount', 'string'],
+        'expenses.*.amount' => ['required_with:expenses.*.expense_type', 'numeric', 'min:0'],
+        'expenses.*.description' => ['nullable', 'string', 'max:500'],
+        'expenses.*.receipt' => ['nullable', 'image', 'max:2048'], // 2MB max
+    ]);
+
+    DB::transaction(function () use ($dispatch, $request, $products) {
+        // ==============================================
+        // STEP 1: Update Dispatch Items (Products Sold)
+        // ==============================================
+        $totalItemsSold = 0;
+        $totalSalesValue = 0;
+        $calculatedCashReceived = 0;
+        $creditSalesValue = 0;
+        $remainingInventoryValue = 0;
+
+        $itemsForCommission = [];
+
+        foreach ($request->items as $product => $data) {
+            if (!array_key_exists($product, $products)) continue;
+
+            $item = $dispatch->items->firstWhere('product', $product);
+            if (!$item) continue;
+
+            $newSoldCash   = (int) ($data['sold_cash'] ?? 0);
+            $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
+
+            $maxSold = $item->opening_stock + $item->dispatched_qty;
+            $totalSold = $newSoldCash + $newSoldCredit;
+
+            if ($totalSold > $maxSold) {
+                throw new \Exception("Total sold ($totalSold) cannot exceed available stock ($maxSold) for $product");
+            }
+
+            $remaining = $maxSold - $totalSold;
+            $unitPrice = $products[$product];
+            $lineTotal = $totalSold * $unitPrice;
+
+            $totalItemsSold += $totalSold;
+            $totalSalesValue += $lineTotal;
+            $calculatedCashReceived += $newSoldCash * $unitPrice;
+            $creditSalesValue += $newSoldCredit * $unitPrice;
+            $remainingInventoryValue += $remaining * $unitPrice;
+
+            $itemsForCommission[] = [
+                'product'        => $product,
+                'opening_stock'  => $item->opening_stock,
+                'dispatched_qty' => $item->dispatched_qty,
+                'sold_qty'       => $totalSold,
+                'unit_price'     => $unitPrice,
+            ];
+
+            $item->update([
+                'sold_cash'     => $newSoldCash,
+                'sold_credit'   => $newSoldCredit,
+                'sold_qty'      => $totalSold,
+                'remaining_qty' => $remaining,
+                'line_total'    => $lineTotal,
+            ]);
+        }
+
+        // ==============================================
+        // STEP 2: Calculate Commissions
+        // ==============================================
+        $commissionTotal = $this->computeCommissionStuff($itemsForCommission, $totalSalesValue);
+
+        foreach ($itemsForCommission as $itemData) {
+            $item = $dispatch->items->firstWhere('product', $itemData['product']);
+            if ($item) {
+                $item->update(['commission' => $itemData['commission'] ?? 0]);
+            }
+        }
+
+        // ==============================================
+        // STEP 3: Process Driver Expenses
+        // ==============================================
+        $totalDriverExpenses = 0;
+        $existingExpenseIds = [];
+
+        if ($request->has('expenses') && is_array($request->expenses)) {
+            foreach ($request->expenses as $expenseData) {
+                // Skip empty expense rows
+                if (empty($expenseData['expense_type']) || empty($expenseData['amount'])) {
+                    continue;
+                }
+
+                $amount = (float) $expenseData['amount'];
+                $totalDriverExpenses += $amount;
+
+                $expenseRecord = [
+                    'dispatch_id'   => $dispatch->id,
+                    'driver_id'     => $dispatch->driver_id,
+                    'expense_type'  => $expenseData['expense_type'],
+                    'amount'        => $amount,
+                    'description'   => $expenseData['description'] ?? null,
+                ];
+
+                // Handle receipt upload
+                if (isset($expenseData['receipt']) && $expenseData['receipt']) {
+                    $file = $expenseData['receipt'];
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('receipts', $filename, 'public');
+                    $expenseRecord['receipt_image'] = $path;
+                }
+
+                // Update existing or create new
+                if (!empty($expenseData['id'])) {
+                    $expense = DriverExpense::find($expenseData['id']);
+                    if ($expense && $expense->dispatch_id == $dispatch->id) {
+                        // Delete old receipt if new one uploaded
+                        if (isset($expenseRecord['receipt_image']) && $expense->receipt_image) {
+                            Storage::disk('public')->delete($expense->receipt_image);
+                        }
+                        $expense->update($expenseRecord);
+                        $existingExpenseIds[] = $expense->id;
+                    }
+                } else {
+                    $newExpense = DriverExpense::create($expenseRecord);
+                    $existingExpenseIds[] = $newExpense->id;
+                }
+            }
+        }
+
+        // Delete expenses that were removed
+        $dispatch->expenses()
+            ->whereNotIn('id', $existingExpenseIds)
+            ->each(function ($expense) {
+                if ($expense->receipt_image) {
+                    Storage::disk('public')->delete($expense->receipt_image);
+                }
+                $expense->delete();
+            });
+
+        // ==============================================
+        // STEP 4: Calculate Financial Summary
+        // ==============================================
+        $actualCashReceived = (float) ($request->input('cash_received') ?: $calculatedCashReceived);
+        $expectedAfterDeductions = $calculatedCashReceived - $commissionTotal - $totalDriverExpenses;
+        $shortfall = $expectedAfterDeductions - $actualCashReceived;
+
+        // ==============================================
+        // STEP 5: Update Driver Back Debt
+        // ==============================================
+        $driver = $dispatch->driver;
+        $originalBackDebt = $driver->back_debt;
+
+        if ($shortfall > 0) {
+            $driver->back_debt += $shortfall; // Driver owes bakery
+        } elseif ($shortfall < 0) {
+            $driver->back_debt = max(0, $driver->back_debt + $shortfall); // Reduce debt
+        }
+        $driver->save();
+
+        // ==============================================
+        // STEP 6: Calculate Balance Due
+        // ==============================================
+        $balanceDue = $remainingInventoryValue + $creditSalesValue + $driver->back_debt - $actualCashReceived;
+
+        // ==============================================
+        // STEP 7: Update Dispatch Record
+        // ==============================================
+        $dispatch->update([
+            'notes'                          => $request->notes,
+            'driver_signature'               => $request->driver_signature,
+            'total_items_sold'               => $totalItemsSold,
+            'total_sales_value'              => $totalSalesValue,
+            'commission_total'               => $commissionTotal,
+            'driver_expenses'                => $totalDriverExpenses,
+            'cash_received'                  => $actualCashReceived,
+            'expected_cash_after_deductions' => $expectedAfterDeductions,
+            'balance_due'                    => $balanceDue,
+        ]);
+    });
+
+    return redirect()->route('manager.dispatches.index')
+                     ->with('success', 'Dispatch updated successfully with itemized expenses.');
+}
+
     protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
     {
         $products = array_keys(config('bakery_products'));
@@ -222,7 +418,7 @@ class ManagerDispatchController extends Controller
         ]);
 
         $threshold = (float) config('commissions.threshold', 1_000_000);
-        $basis = config('commissions.threshold_basis', 'available'); // available|dispatched|sold
+        $basis = config('commissions.threshold_basis', 'available');
 
         $basisValue = 0.0;
         foreach ($lines as $row) {
@@ -230,11 +426,13 @@ class ManagerDispatchController extends Controller
             $opening = (int) ($row['opening_stock'] ?? 0);
             $dispatched = (int) ($row['dispatched_qty'] ?? 0);
             $sold = (int) ($row['sold_qty'] ?? 0);
+            
             $qtyForBasis = match ($basis) {
                 'dispatched' => $dispatched,
                 'sold' => $sold,
                 default => $opening + $dispatched,
             };
+            
             $basisValue += $qtyForBasis * $unit;
         }
 
@@ -251,116 +449,16 @@ class ManagerDispatchController extends Controller
         return round($commissionTotal, 2);
     }
 
-
-public function edit($id)
+    public function history($driverId)
 {
-    $dispatch = Dispatch::with('items','driver')->findOrFail($id);
+    $driver = \App\Models\User::findOrFail($driverId);
 
-    // Only get users with role 'driver'
-    $drivers = User::where('role', 'driver')->get();
+    $dispatches = \App\Models\Dispatch::where('driver_id', $driverId)
+        ->with('items')
+        ->latest()
+        ->paginate(10);
 
-    $products = config('bakery_products'); // <-- fixed
-    $openings = $this->computeOpenings((int)$dispatch->driver_id, $dispatch->dispatch_date, $dispatch->id);
-
-    return view('manager.dispatches.edit', compact('dispatch','drivers','products','openings'));
+    return view('manager.dispatches.history', compact('driver', 'dispatches'));
 }
-
-
-public function update(Request $request, $id)
-{
-    $dispatch = Dispatch::with('items', 'driver')->findOrFail($id);
-    $products = config('bakery_products');
-
-    $request->validate([
-        'items' => ['required', 'array'],
-        'notes' => ['nullable', 'string'],
-        'cash_received' => ['nullable', 'numeric', 'min:0'],
-        'driver_signature' => ['nullable', 'string'],
-    ]);
-
-    DB::transaction(function () use ($dispatch, $request, $products) {
-        $totalItemsSold = 0;
-        $totalSalesValue = 0;
-        $calculatedCashReceived = 0;
-        $creditSalesValue = 0;
-        $remainingInventoryValue = 0;
-
-        foreach ($request->items as $product => $data) {
-            if (!array_key_exists($product, $products)) continue;
-
-            $item = $dispatch->items->firstWhere('product', $product);
-            if (!$item) continue;
-
-            $newSoldCash   = (int) ($data['sold_cash'] ?? 0);
-            $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
-
-            $maxSold = $item->opening_stock + $item->dispatched_qty;
-            $totalSold = $newSoldCash + $newSoldCredit;
-
-            if ($totalSold > $maxSold) {
-                throw new \Exception("Total sold ($totalSold) cannot exceed available stock ($maxSold) for $product");
-            }
-
-            $remaining = $maxSold - $totalSold;
-            $unitPrice = $products[$product];
-            $lineTotal = $totalSold * $unitPrice;
-
-            $item->update([
-                'sold_cash'     => $newSoldCash,
-                'sold_credit'   => $newSoldCredit,
-                'sold_qty'      => $totalSold,
-                'remaining_qty' => $remaining,
-                'line_total'    => $lineTotal,
-            ]);
-
-            $totalItemsSold += $totalSold;
-            $totalSalesValue += $lineTotal;
-            $calculatedCashReceived += $newSoldCash * $unitPrice;
-            $creditSalesValue += $newSoldCredit * $unitPrice;
-            $remainingInventoryValue += $remaining * $unitPrice;
-        }
-
-        // Use actual cash received from manager, or calculated if not provided
-        $actualCashReceived = $request->input('cash_received');
-        if ($actualCashReceived === null || $actualCashReceived === '') {
-            $actualCashReceived = $calculatedCashReceived;
-        }
-
-        // Balance due = Remaining inventory value + Credit sales value
-        $balanceDue = $remainingInventoryValue + $creditSalesValue;
-
-        // Compute commission
-        $itemsArray = $dispatch->items->toArray();
-        $commissionTotal = $this->computeCommissionStuff($itemsArray, $totalSalesValue);
-
-        // Update driver's back debt based on shortfall from actual cash received
-        $driver = $dispatch->driver;
-        $shortfall = $calculatedCashReceived - $actualCashReceived;
-
-        if($shortfall > 0){
-            $driver->back_debt += $shortfall;
-        } else if ($shortfall < 0) {
-            // If manager entered more than calculated cash, reduce back debt
-            $driver->back_debt = max(0, $driver->back_debt + $shortfall); // shortfall negative here
-        }
-        $driver->save();
-
-
-        $dispatch->update([
-            'notes'             => $request->notes,
-            'driver_signature'  => $request->driver_signature,
-            'total_items_sold'  => $totalItemsSold,
-            'total_sales_value' => $totalSalesValue,
-            'cash_received'     => $actualCashReceived,
-            'balance_due'       => $balanceDue,
-            'commission_total'  => $commissionTotal,
-        ]);
-    });
-
-    return redirect()->route('manager.dispatches.index')
-                     ->with('success', 'Dispatch updated successfully.');
-}
-
-
 
 }

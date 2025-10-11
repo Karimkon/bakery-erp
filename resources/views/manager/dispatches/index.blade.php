@@ -60,6 +60,10 @@
                  <a href="{{ route('manager.dispatches.edit',$d->id) }}" class="btn btn-sm btn-outline-warning">
                     <i class="bi bi-pencil-square"></i> Update
                 </a>
+                <a href="{{ route('manager.dispatches.history', $d->driver_id) }}" 
+                class="btn btn-sm btn-secondary">
+                    <i class="bi bi-clock-history"></i> History
+                </a>
                 <button class="btn btn-success btn-sm sendWhatsApp"
                     data-driver="{{ $d->driver->name }}"
                     data-phone="{{ $d->driver->phone }}"

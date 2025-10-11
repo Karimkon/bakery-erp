@@ -368,7 +368,12 @@ body {
             <a href="{{ route('admin.reports.index') }}" 
                 class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-bar-graph"></i> Reports
-                </a>
+            </a>
+
+            <a href="{{ route('admin.expenses.dashboard') }}" 
+                class="{{ request()->routeIs('admin.expenses.*') ? 'active' : '' }}">
+                    <i class="bi bi-file-earmark-bar-graph"></i> Dispatch Analytics Expense
+            </a>
 
         </div>
     </div>

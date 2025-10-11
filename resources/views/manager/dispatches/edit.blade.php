@@ -4,7 +4,7 @@
 @section('content')
 <h4 class="mb-3"><i class="bi bi-truck me-2"></i> Edit Driver Dispatch</h4>
 
-<form method="POST" action="{{ route('manager.dispatches.update', $dispatch->id) }}">
+<form method="POST" action="{{ route('manager.dispatches.update', $dispatch->id) }}" enctype="multipart/form-data">
     @csrf
     @method('PUT')
 
@@ -15,7 +15,7 @@
                 <option value="">-- Select Driver --</option>
                 @foreach($drivers as $driver)
                     <option value="{{ $driver->id }}"
-                        {{ old('driver_id',$dispatch->driver_id)==$driver->id ? 'selected':'' }}>
+                        {{ old('driver_id', $dispatch->driver_id) == $driver->id ? 'selected' : '' }}>
                         {{ $driver->name }}
                     </option>
                 @endforeach
@@ -30,7 +30,7 @@
 
         <div class="col-md-12">
             <label class="form-label">Notes</label>
-            <textarea name="notes" class="form-control" rows="2">{{ old('notes',$dispatch->notes) }}</textarea>
+            <textarea name="notes" class="form-control" rows="2">{{ old('notes', $dispatch->notes) }}</textarea>
         </div>
     </div>
 
@@ -44,266 +44,533 @@
     <h5 class="mt-4">Driver Signature</h5>
     <canvas id="signature-pad" width="400" height="150" style="border:1px solid #ccc;"></canvas>
     <br>
-    <button type="button" id="clear-signature" class="btn btn-secondary btn-sm">Clear</button>
+    <button type="button" id="clear-signature" class="btn btn-secondary btn-sm mt-2">Clear</button>
     <input type="hidden" name="driver_signature" id="driver_signature" value="{{ old('driver_signature', $dispatch->driver_signature) }}">
 
     <div class="table-responsive mt-3">
-        <table class="table table-sm table-bordered align-middle">
+        <table class="table table-sm table-bordered align-middle" id="items-table">
             <thead class="table-light">
                 <tr>
                     <th>Product</th>
                     <th>Opening</th>
-                    <th>Driver's Remaining items</th>
                     <th>Dispatched</th>
+                    <th>Driver's Remaining</th>
                     <th>Qty Sold (Cash)</th>
-                    <!-- <th>Qty Sold (Credit)</th> -->
-                    <th>Commission</th>
+                    <th>Commission (UGX)</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($products as $product => $price)
                     @php
-                        $row = $dispatch->items->firstWhere('product',$product);
-                        $opening    = old("items.$product.opening_stock", $openings[$product] ?? 0);
-                        $dispatched = old("items.$product.dispatched_qty", $row?->dispatched_qty ?? 0);
-                        $soldCash   = old("items.$product.sold_cash", $row?->sold_cash ?? 0);
-                        $soldCredit = old("items.$product.sold_credit", $row?->sold_credit ?? 0);
-                        $remaining  = ($opening + $dispatched) - ($soldCash + $soldCredit);
-                        $commission = $row?->commission ?? 0;
+                        $row = $dispatch->items->firstWhere('product', $product);
+                        $opening    = (int) ($openings[$product] ?? 0);
+                        $dispatched = (int) ($row?->dispatched_qty ?? 0);
+                        $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
+                        $soldCredit = (int) ($row?->sold_credit ?? 0);
+                        $commission = (float) ($row?->commission ?? 0);
                         $maxSold = $opening + $dispatched;
+                        $remaining = $maxSold - $soldCash;
                     @endphp
-                    <tr data-product="{{ $product }}">
+                    <tr data-product="{{ $product }}" data-price="{{ $price }}">
                         <td>
-                            {{ ucfirst(str_replace('_',' ',$product)) }}
+                            <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
                             <div class="text-muted small">UGX {{ number_format($price) }}</div>
                         </td>
                         <td>
-                            <input type="number" class="form-control opening-stock"
-                                   name="items[{{ $product }}][opening_stock]"
-                                   value="{{ $opening }}" readonly>
-                        </td>
-                        <td class="remaining-col">{{ $remaining }}</td>
-                        <td>
-                            <input type="number" class="form-control dispatched-qty"
-                                name="items[{{ $product }}][dispatched_qty]"
-                                value="{{ $dispatched }}"
-                                readonly>
+                            <input type="number" class="form-control form-control-sm opening-stock" 
+                                   data-opening="{{ $opening }}"
+                                   value="{{ $opening }}" readonly tabindex="-1">
                         </td>
                         <td>
-                            <input type="number" class="form-control sold-cash"
+                            <input type="number" class="form-control form-control-sm dispatched-qty" 
+                                   data-dispatched="{{ $dispatched }}"
+                                   value="{{ $dispatched }}" readonly tabindex="-1">
+                        </td>
+                        <td class="text-center">
+                            <span class="remaining-col badge bg-info">{{ $remaining }}</span>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm sold-cash"
                                    name="items[{{ $product }}][sold_cash]"
                                    value="{{ $soldCash }}"
-                                   min="0" max="{{ $maxSold - $soldCredit }}">
+                                   min="0" max="{{ $maxSold }}" 
+                                   data-max="{{ $maxSold }}">
                         </td>
-                        <!-- <td>
-                            <input type="number" class="form-control sold-credit"
-                                   name="items[{{ $product }}][sold_credit]"
-                                   value="{{ $soldCredit }}">
-                        </td> -->
-                        <td class="commission-col">{{ number_format($commission,0) }}</td>
+                        <td class="text-center">
+                            <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
+                        </td>
+                        <input type="hidden" class="commission-value" value="{{ $commission }}">
                     </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
 
-    <!-- Hidden fields for totals -->
     <input type="hidden" name="commission_total" id="commission_total">
     <input type="hidden" name="total_sales_value" id="total_sales_value">
     <input type="hidden" name="total_items_sold" id="total_items_sold">
-    <input type="hidden" name="back_debt" id="back_debt" value="{{ old('back_debt', $driver->back_debt ?? 0) }}">
+    <input type="hidden" name="driver_expenses" id="driver_expenses_total">
 
+    <hr class="my-4">
+
+    <!-- DRIVER EXPENSES SECTION -->
+    <h5 class="mb-3"><i class="bi bi-cash-coin me-2"></i> Driver Expenses</h5>
+    <p class="text-muted small">Add itemized expenses with descriptions. Total will be calculated automatically.</p>
+
+    <div id="expenses-container">
+        @php
+            $existingExpenses = old('expenses', $dispatch->expenses->toArray());
+        @endphp
+        
+        @if(count($existingExpenses) > 0)
+            @foreach($existingExpenses as $index => $expense)
+                <div class="expense-row row g-2 mb-2 align-items-end" data-index="{{ $index }}">
+                    <div class="col-md-3">
+                        <label class="form-label small">Expense Type</label>
+                        <select name="expenses[{{ $index }}][expense_type]" class="form-select form-select-sm expense-type" required>
+                            <option value="">-- Select Type --</option>
+                            @foreach(\App\Models\DriverExpense::expenseTypes() as $key => $label)
+                                <option value="{{ $key }}" {{ ($expense['expense_type'] ?? '') == $key ? 'selected' : '' }}>
+                                    {{ $label }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Amount (UGX)</label>
+                        <input type="number" step="0.01" name="expenses[{{ $index }}][amount]" 
+                               class="form-control form-control-sm expense-amount" 
+                               value="{{ $expense['amount'] ?? 0 }}" 
+                               min="0" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Description</label>
+                        <input type="text" name="expenses[{{ $index }}][description]" 
+                               class="form-control form-control-sm" 
+                               value="{{ $expense['description'] ?? '' }}" 
+                               placeholder="Details about this expense">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Receipt (optional)</label>
+                        <input type="file" name="expenses[{{ $index }}][receipt]" 
+                               class="form-control form-control-sm" 
+                               accept="image/*">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-sm btn-danger remove-expense">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" name="expenses[{{ $index }}][id]" value="{{ $expense['id'] ?? '' }}">
+                </div>
+            @endforeach
+        @else
+            <div class="expense-row row g-2 mb-2 align-items-end" data-index="0">
+                <div class="col-md-3">
+                    <label class="form-label small">Expense Type</label>
+                    <select name="expenses[0][expense_type]" class="form-select form-select-sm expense-type">
+                        <option value="">-- Select Type --</option>
+                        @foreach(\App\Models\DriverExpense::expenseTypes() as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Amount (UGX)</label>
+                    <input type="number" step="0.01" name="expenses[0][amount]" 
+                           class="form-control form-control-sm expense-amount" 
+                           value="0" min="0">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Description</label>
+                    <input type="text" name="expenses[0][description]" 
+                           class="form-control form-control-sm" 
+                           placeholder="Details about this expense">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Receipt (optional)</label>
+                    <input type="file" name="expenses[0][receipt]" 
+                           class="form-control form-control-sm" 
+                           accept="image/*">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-sm btn-danger remove-expense">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        @endif
+    </div>
+
+    <button type="button" id="add-expense" class="btn btn-sm btn-outline-primary mt-2">
+        <i class="bi bi-plus-circle"></i> Add Another Expense
+    </button>
 
     <div class="row g-3 mt-3">
-        <!-- Calculated Cash Received (readonly, computed by JS) -->
-        <div class="col-md-6">
-            <label class="form-label">Calculated Cash Received (UGX)</label>
-            <input type="number" step="0.01" id="calculated_cash_received" class="form-control" readonly>
-            <small class="text-muted">Auto-calculated from cash sales.</small>
-        </div>
-
-        <!-- Actual Cash Received (editable by manager) -->
-        <div class="col-md-6">
-            <label class="form-label">Actual Cash Received (UGX)</label>
-            <input type="number" step="0.01" name="cash_received" id="actual_cash_received" class="form-control"
-                   value="{{ old('cash_received', $dispatch->cash_received) }}">
-            <small class="text-muted">Enter actual amount received. Leave blank to use calculated value.</small>
-        </div>
-
-        <!-- Balance Due (readonly, computed dynamically) -->
-        <div class="col-md-6">
-            <label class="form-label">Balance Due (UGX)</label>
-            <input type="number" step="0.01" id="balance_due_display" class="form-control" readonly>
-            <small class="text-muted">Credit sales + Remaining inventory value - Actual cash received.</small>
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Total Driver Expenses (UGX)</label>
+            <input type="text" id="total_expenses_display" class="form-control bg-warning bg-opacity-25 fw-bold" readonly>
         </div>
     </div>
 
-    <button class="btn btn-success mt-3"><i class="bi bi-save"></i> Update Dispatch</button>
+    <hr class="my-4">
+
+    <div class="row g-3 mt-4">
+        <div class="col-md-6">
+            <label class="form-label fw-bold">Calculated Cash Received (UGX)</label>
+            <input type="text" id="calculated_cash_received" class="form-control form-control-lg bg-light text-primary fw-bold" readonly>
+            <small class="text-muted">Auto-calculated from cash sales.</small>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label fw-bold">Actual Cash Received (UGX)</label>
+            <input type="number" step="0.01" name="cash_received" id="actual_cash_received" class="form-control form-control-lg"
+                   value="{{ old('cash_received', $dispatch->cash_received) }}" placeholder="Enter actual amount">
+            <small class="text-muted">Enter actual amount received. Leave blank to use calculated value.</small>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-3">
+        <div class="col-md-3">
+            <label class="form-label">Commission Total (UGX)</label>
+            <input type="text" id="commission_total_display" class="form-control bg-warning bg-opacity-25 fw-bold" readonly>
+            <small class="text-muted">Total driver commission</small>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Expected After Deductions (UGX)</label>
+            <input type="text" id="expected_after_deductions_display" class="form-control bg-light fw-bold" readonly>
+            <small class="text-muted">Cash - Commission - Expenses</small>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Amount Driver Must Pay (UGX)</label>
+            <input type="text" id="amount_driver_should_pay" class="form-control bg-success bg-opacity-25 text-success fw-bold" readonly>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Shortfall / Overpayment (UGX)</label>
+            <input type="text" id="shortfall_display" class="form-control bg-light fw-bold" readonly>
+            <small class="text-muted">Expected - Actual</small>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-3">
+        <div class="col-md-6">
+            <label class="form-label">Driver Back Debt (UGX)</label>
+            <input type="text" id="back_debt_display" class="form-control bg-danger bg-opacity-25 text-danger fw-bold" readonly>
+            <small class="text-muted">Previous debt + shortfall</small>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Balance Due (UGX)</label>
+            <input type="text" id="balance_due_display" class="form-control bg-info bg-opacity-25 fw-bold fs-5" readonly>
+            <small class="text-muted">Remaining stock + Back debt - Actual cash</small>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success btn-lg mt-4">
+        <i class="bi bi-save"></i> Update Dispatch
+    </button>
+    <a href="{{ route('manager.dispatches.index') }}" class="btn btn-secondary btn-lg mt-4">
+        <i class="bi bi-arrow-left"></i> Cancel
+    </a>
 </form>
 @endsection
 
 @push('scripts')
 <script>
 $(function () {
-    $('.select2').select2({ placeholder: 'Search driver' });
+    'use strict';
 
-    const threshold = Number(@json(config('commissions.threshold'))) || 0;
-    const rates = @json(config('commissions.rates'));
-    const thresholdBasis = @json(config('commissions.threshold_basis')) || 'available';
-
-    function parseIntSafe(x){ return Number.isFinite(Number(x)) ? parseInt(x) : 0; }
-    function parseFloatSafe(x){ return Number.isFinite(Number(x)) ? parseFloat(x) : 0; }
-
-    function recomputeRow($row){
-        const opening = parseIntSafe($row.find('.opening-stock').val());
-        const dispatched = parseIntSafe($row.find('.dispatched-qty').val());
-        let soldCash = parseIntSafe($row.find('.sold-cash').val());
-        let soldCredit = parseIntSafe($row.find('.sold-credit').val());
-        const maxAvailable = opening + dispatched;
-
-        // Clamp sold
-        let totalSold = soldCash + soldCredit;
-        if(totalSold > maxAvailable){
-            soldCash = Math.min(soldCash, maxAvailable);
-            soldCredit = maxAvailable - soldCash;
-        }
-
-        $row.find('.sold-cash').val(soldCash);
-        $row.find('.sold-credit').val(soldCredit);
-
-        // Remaining
-        const remaining = maxAvailable - (soldCash + soldCredit);
-        $row.find('.remaining-col').text(remaining);
-
-        // Commission
-        const product = $row.data('product');
-        const unitPrice = parseIntSafe($row.find('td div.text-muted').text().replace(/\D/g,''));
-        const soldQty = soldCash + soldCredit;
-
-        let qtyForBasis = 0;
-        switch(thresholdBasis){
-            case 'sold': qtyForBasis = soldQty; break;
-            case 'dispatched': qtyForBasis = dispatched; break;
-            default: qtyForBasis = opening + dispatched;
-        }
-
-        // Compute multiplier
-        let basisValue = 0;
-        $('tbody tr').each(function(){
-            const r = $(this);
-            const op = parseIntSafe(r.find('.opening-stock').val());
-            const dis = parseIntSafe(r.find('.dispatched-qty').val());
-            const sold = parseIntSafe(r.find('.sold-cash').val()) + parseIntSafe(r.find('.sold-credit').val());
-            let q = (thresholdBasis === 'sold') ? sold :
-                    (thresholdBasis === 'dispatched') ? dis : op + dis;
-            const price = parseIntSafe(r.find('td div.text-muted').text().replace(/\D/g,''));
-            basisValue += q * price;
-        });
-        const multiplier = (basisValue >= threshold) ? 1 : 0.5;
-
-        const rate = rates[product] ?? 0;
-        const commission = Math.round(soldQty * rate * multiplier);
-
-        $row.find('.commission-col').text(commission.toLocaleString());
-
-        // Hidden commission
-        let $hidden = $row.find(`input[name="items[${product}][commission]"]`);
-        if(!$hidden.length){
-            $row.append(`<input type="hidden" name="items[${product}][commission]" value="${commission}">`);
-        } else { $hidden.val(commission); }
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('.select2').select2({ placeholder: 'Search driver' });
     }
 
-    function recomputeTotals(){
+    const threshold = Number(@json(config('commissions.threshold', 1000000)));
+    const rates = @json(config('commissions.rates'));
+    const thresholdBasis = @json(config('commissions.threshold_basis', 'available'));
+    const originalBackDebt = parseFloat(@json($dispatch->driver->back_debt ?? 0));
+
+    let expenseIndex = {{ count($existingExpenses) }};
+
+    // Utility functions
+    function parseIntSafe(value) {
+        const num = parseInt(value);
+        return Number.isFinite(num) && num >= 0 ? num : 0;
+    }
+
+    function parseFloatSafe(value) {
+        const num = parseFloat(value);
+        return Number.isFinite(num) && num >= 0 ? num : 0;
+    }
+
+    function formatCurrency(value) {
+        return parseFloat(value).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    // Expense management
+    function calculateTotalExpenses() {
+        let total = 0;
+        $('.expense-amount').each(function() {
+            total += parseFloatSafe($(this).val());
+        });
+        $('#total_expenses_display').val(formatCurrency(total));
+        $('#driver_expenses_total').val(total.toFixed(2));
+        return total;
+    }
+
+    $('#add-expense').on('click', function() {
+        expenseIndex++;
+        const newRow = `
+            <div class="expense-row row g-2 mb-2 align-items-end" data-index="${expenseIndex}">
+                <div class="col-md-3">
+                    <label class="form-label small">Expense Type</label>
+                    <select name="expenses[${expenseIndex}][expense_type]" class="form-select form-select-sm expense-type">
+                        <option value="">-- Select Type --</option>
+                        @foreach(\App\Models\DriverExpense::expenseTypes() as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Amount (UGX)</label>
+                    <input type="number" step="0.01" name="expenses[${expenseIndex}][amount]" 
+                           class="form-control form-control-sm expense-amount" 
+                           value="0" min="0">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Description</label>
+                    <input type="text" name="expenses[${expenseIndex}][description]" 
+                           class="form-control form-control-sm" 
+                           placeholder="Details about this expense">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Receipt (optional)</label>
+                    <input type="file" name="expenses[${expenseIndex}][receipt]" 
+                           class="form-control form-control-sm" 
+                           accept="image/*">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-sm btn-danger remove-expense">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        $('#expenses-container').append(newRow);
+    });
+
+    $(document).on('click', '.remove-expense', function() {
+        $(this).closest('.expense-row').remove();
+        calculateTotalExpenses();
+        recomputeTotals();
+    });
+
+    $(document).on('input change', '.expense-amount', function() {
+        calculateTotalExpenses();
+        recomputeTotals();
+    });
+
+    // Recompute row remaining quantity
+    function recomputeRow($row) {
+        const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
+        const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
+        let soldCash = parseIntSafe($row.find('.sold-cash').val());
+        const maxAvailable = opening + dispatched;
+
+        if (soldCash > maxAvailable) {
+            soldCash = maxAvailable;
+            $row.find('.sold-cash').val(soldCash);
+        }
+
+        const remaining = maxAvailable - soldCash;
+        $row.find('.remaining-col').text(remaining);
+    }
+
+    // Recompute all commissions
+    function recomputeCommissions() {
+        let basisValue = 0;
+
+        $('#items-table tbody tr').each(function() {
+            const $r = $(this);
+            const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
+            const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
+            const soldCash = parseIntSafe($r.find('.sold-cash').val());
+            const unitPrice = parseFloatSafe($r.data('price'));
+
+            let qtyForBasis = 0;
+            if (thresholdBasis === 'sold') {
+                qtyForBasis = soldCash;
+            } else if (thresholdBasis === 'dispatched') {
+                qtyForBasis = dispatched;
+            } else {
+                qtyForBasis = opening + dispatched;
+            }
+
+            basisValue += qtyForBasis * unitPrice;
+        });
+
+        const multiplier = (basisValue >= threshold) ? 1.0 : 0.5;
+
+        $('#items-table tbody tr').each(function() {
+            const $r = $(this);
+            const product = $r.data('product');
+            const soldCash = parseIntSafe($r.find('.sold-cash').val());
+            const rate = parseFloatSafe(rates[product] || 0);
+            const commission = Math.round(soldCash * rate * multiplier);
+
+            $r.find('.commission-col').text(formatCurrency(commission));
+            $r.find('.commission-value').val(commission);
+        });
+    }
+
+    // Recompute all totals
+    function recomputeTotals() {
         let calculatedCashReceived = 0;
         let totalSales = 0;
         let totalItemsSold = 0;
         let commissionTotal = 0;
         let remainingInventoryValue = 0;
-        let creditSalesValue = 0;
 
-        $('tbody tr').each(function(){
-            const r = $(this);
-            const soldCash = parseIntSafe(r.find('.sold-cash').val());
-            const soldCredit = parseIntSafe(r.find('.sold-credit').val());
-            const opening = parseIntSafe(r.find('.opening-stock').val());
-            const dispatched = parseIntSafe(r.find('.dispatched-qty').val());
-            const unitPrice = parseIntSafe(r.find('td div.text-muted').text().replace(/\D/g,''));
-            const commission = parseIntSafe(r.find(`input[name*="[commission]"]`).val());
+        $('#items-table tbody tr').each(function() {
+            const $r = $(this);
+            const soldCash = parseIntSafe($r.find('.sold-cash').val());
+            const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
+            const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
+            const unitPrice = parseFloatSafe($r.data('price'));
+            const commission = parseFloatSafe($r.find('.commission-value').val());
 
-            const totalSold = soldCash + soldCredit;
-            const remaining = (opening + dispatched) - totalSold;
+            const remaining = (opening + dispatched) - soldCash;
 
             calculatedCashReceived += soldCash * unitPrice;
-            creditSalesValue += soldCredit * unitPrice;
-            totalSales += totalSold * unitPrice;
-            totalItemsSold += totalSold;
+            totalSales += soldCash * unitPrice;
+            totalItemsSold += soldCash;
             commissionTotal += commission;
             remainingInventoryValue += remaining * unitPrice;
         });
 
-        $('#calculated_cash_received').val(calculatedCashReceived.toFixed(2));
+        $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
 
         let actualCashReceived = parseFloatSafe($('#actual_cash_received').val());
-        if(!actualCashReceived) actualCashReceived = calculatedCashReceived;
+        if (actualCashReceived === 0) {
+            actualCashReceived = calculatedCashReceived;
+        }
 
-        // Back debt
-        let backDebt = parseFloatSafe($('#back_debt').val());
-        let shortfall = calculatedCashReceived - actualCashReceived;
+        const driverExpenses = calculateTotalExpenses();
+        const expectedAfterDeductions = calculatedCashReceived - commissionTotal - driverExpenses;
+        const shortfall = expectedAfterDeductions - actualCashReceived;
 
-        if(shortfall > 0) backDebt += shortfall;
-        else if(shortfall < 0) backDebt = Math.max(0, backDebt + shortfall);
+        let newBackDebt = originalBackDebt;
+        if (shortfall > 0) {
+            newBackDebt += shortfall;
+        } else if (shortfall < 0) {
+            newBackDebt = Math.max(0, newBackDebt + shortfall);
+        }
 
-        $('#back_debt').val(backDebt.toFixed(2));
+        const balanceDue = remainingInventoryValue + newBackDebt - actualCashReceived;
 
-        // Balance due
-        const balanceDue = remainingInventoryValue + creditSalesValue + backDebt - actualCashReceived;
-        $('#balance_due_display').val(balanceDue.toFixed(2));
+        $('#commission_total_display').val(formatCurrency(commissionTotal));
+        $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
+        $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
+        $('#shortfall_display').val(formatCurrency(shortfall));
+        $('#back_debt_display').val(formatCurrency(newBackDebt));
+        $('#balance_due_display').val(formatCurrency(balanceDue));
 
-        $('#commission_total').val(commissionTotal);
-        $('#total_sales_value').val(totalSales);
+        $('#commission_total').val(commissionTotal.toFixed(2));
+        $('#total_sales_value').val(totalSales.toFixed(2));
         $('#total_items_sold').val(totalItemsSold);
     }
 
-    // Events
-    $('table').on('input change', '.sold-cash, .sold-credit', function(){
+    // Event handlers
+    $('#items-table').on('input change', '.sold-cash', function() {
         const $row = $(this).closest('tr');
         recomputeRow($row);
+        recomputeCommissions();
         recomputeTotals();
     });
 
-    $('#actual_cash_received').on('input change', recomputeTotals);
+    $('#actual_cash_received').on('input change', function() {
+        recomputeTotals();
+    });
 
-    $('tbody tr').each(function(){ recomputeRow($(this)); });
+    // Initial calculations
+    $('#items-table tbody tr').each(function() {
+        recomputeRow($(this));
+    });
+    recomputeCommissions();
+    calculateTotalExpenses();
     recomputeTotals();
 
     // Signature pad
     const canvas = document.getElementById('signature-pad');
     const ctx = canvas.getContext('2d');
     const existingSig = $('#driver_signature').val();
-    if(existingSig){
+    
+    if (existingSig && existingSig.length > 0) {
         const img = new Image();
-        img.onload = function(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); };
+        img.onload = function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
         img.src = existingSig;
     }
-    let drawing = false;
-    canvas.addEventListener('mousedown', ()=>drawing=true);
-    canvas.addEventListener('mouseup', ()=>drawing=false);
-    canvas.addEventListener('mouseleave', ()=>drawing=false);
-    canvas.addEventListener('mousemove', draw);
-    function draw(e){
-        if(!drawing) return;
-        const rect = canvas.getBoundingClientRect();
-        ctx.lineWidth = 2; ctx.lineCap='round'; ctx.strokeStyle='#000';
-        ctx.lineTo(e.clientX-rect.left, e.clientY-rect.top);
-        ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX-rect.left, e.clientY-rect.top);
-    }
-    $('#clear-signature').on('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); $('#driver_signature').val(''); });
 
-    $('form').on('submit', function(){
-        if(!$('#actual_cash_received').val()) $('#actual_cash_received').val($('#calculated_cash_received').val());
-        $('#driver_signature').val(canvas.toDataURL());
+    let drawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+
+    canvas.addEventListener('mousedown', function(e) {
+        drawing = true;
+        const pos = getMousePos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+    });
+    
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseleave', () => drawing = false);
+    
+    canvas.addEventListener('mousemove', function(e) {
+        if (!drawing) return;
+        
+        const pos = getMousePos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000';
+        ctx.stroke();
+        
+        lastX = pos.x;
+        lastY = pos.y;
+    });
+
+    $('#clear-signature').on('click', function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        $('#driver_signature').val('');
+    });
+
+    // Form submission
+    $('form').on('submit', function(e) {
+        if (!$('#actual_cash_received').val()) {
+            $('#actual_cash_received').val($('#calculated_cash_received').val().replace(/,/g, ''));
+        }
+        
+        const signatureData = canvas.toDataURL();
+        $('#driver_signature').val(signatureData);
     });
 });
 </script>
-
 @endpush

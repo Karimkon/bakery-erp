@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Manager\ManagerDashboardController;
 use App\Http\Controllers\Manager\ManagerReportsController;
 use App\Http\Controllers\Admin\AdminDamageController;
+use App\Http\Controllers\Admin\AdminExpenseController;
 
 
 
@@ -199,6 +200,15 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     ->name('damages.destroy');
 
 
+     // 💰 NEW: Admin Expense Analytics Routes
+    Route::get('expenses/dashboard', [AdminExpenseController::class, 'dashboard'])
+        ->name('expenses.dashboard');
+    Route::get('expenses/daily-report', [AdminExpenseController::class, 'dailyReport'])
+        ->name('expenses.daily');
+    Route::get('expenses/driver-analysis', [AdminExpenseController::class, 'driverAnalysis'])
+        ->name('expenses.driver-analysis');
+    Route::get('expenses/export', [AdminExpenseController::class, 'export'])
+        ->name('expenses.export');
     
 });
 
@@ -284,6 +294,9 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
     // 🟩 Manager Shop Reports
     Route::get('shop-report', [\App\Http\Controllers\Manager\ManagerShopReportController::class, 'index'])
         ->name('shop.report');
+
+    Route::get('/dispatches/history/{driver}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'history'])
+    ->name('dispatches.history');
 
     });
 

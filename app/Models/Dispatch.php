@@ -25,4 +25,9 @@ class Dispatch extends Model
     {
         return $this->hasMany(DispatchItem::class);
     }
+
+    public function expenses()
+    {
+        return $this->hasMany(DriverExpense::class);
+    }
 }
