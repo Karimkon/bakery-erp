@@ -14,6 +14,9 @@ return [
         'block_cakes'    => 200,
         'slab_cakes'     => 200,
         'birthday_cakes' => 200,
+        'quarter_breads' => 100,
+        'mandazis'       => 200,
+
     ],
 
     // How to measure the threshold. Defaults to value of (opening + dispatched).

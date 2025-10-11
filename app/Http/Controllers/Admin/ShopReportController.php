@@ -11,7 +11,7 @@ class ShopReportController extends Controller
 {
     public function index(Request $request)
 {
-    $query = ShopStock::where('shop_name', 'Kampala Main Shop');
+    $query = ShopStock::where('shop_name', 'Bakery Main Shop');
 
     if ($request->filled('product')) {
         $query->where('product_type', $request->product);

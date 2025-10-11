@@ -28,37 +28,36 @@ class ProductionController extends Controller
         return view('chef.productions.create', compact('ingredients', 'products'));
     }
 
-    public function store(Request $request)
+public function store(Request $request)
 {
-    // 1) Validate inputs
     $request->validate([
         'production_date' => 'required|date',
-        'flour_bags'      => 'required|numeric|min:0',
+        'flour_kgs'       => 'required|numeric|min:0',
         'outputs'         => 'required|array',
         'outputs.*'       => 'nullable|integer|min:0',
         'ingredients'     => 'nullable|array',
         'ingredients.*'   => 'nullable|numeric|min:0',
     ]);
 
-    $prices   = config('bakery_products'); // prices you already have
+    $prices   = config('bakery_products');
     $yieldMin = config('bakery_yield.yield_min_per_bag', []);
     $flourEq  = config('bakery_yield.flour_equiv_bags_per_unit', []);
 
-    $flourBags = (float) $request->flour_bags;
+    $flourKgs = (float) $request->flour_kgs;
+    $flourBags = $flourKgs / 50; // 👈 convert internally (1 bag = 50 kg)
     $outputs   = $request->input('outputs', []);
 
-    // 2) Total production value
+    // 1️⃣ Calculate total production value
     $totalValue = 0;
     foreach ($prices as $product => $price) {
         $qty = (int) ($outputs[$product] ?? 0);
-        $totalValue += ($qty * (int) $price);
+        $totalValue += $qty * (int) $price;
     }
 
-    // 3) Variance logic
+    // 2️⃣ Variance logic (unchanged)
     $hasVariance = false;
     $notes = '';
 
-    // (a) Minimum yield: buns >= 150 * bags (lower bound only; more is allowed)
     if (isset($outputs['buns'], $yieldMin['buns'])) {
         $minBuns = $flourBags * $yieldMin['buns'];
         if ((int)$outputs['buns'] < $minBuns) {
@@ -67,34 +66,26 @@ class ProductionController extends Controller
         }
     }
 
-    // (b) Flour equivalence: outputs should NOT imply more flour than recorded
-    //     (This is not a cap on “how much above 150”; it simply prevents claiming
-    //      unrealistic output with too little flour recorded.)
     $impliedBags = 0.0;
     foreach ($outputs as $product => $qty) {
         $eq = (float) ($flourEq[$product] ?? 0);
-        if ($eq > 0) {
-            $impliedBags += ((int)$qty) * $eq;
-        }
+        if ($eq > 0) $impliedBags += ((int)$qty) * $eq;
     }
-    // Small tolerance to avoid float rounding noise
+
     if ($impliedBags > $flourBags + 0.01) {
         $hasVariance = true;
         $notes .= "Over flour: outputs imply ~" . number_format($impliedBags, 2) . " bags > recorded {$flourBags}. ";
     }
 
-    // 4) Create the production + ingredient usages (atomic)
-    \DB::transaction(function () use ($request, $outputs, $totalValue, $hasVariance, $notes) {
-        // Save production
-        $production = Production::create([
+    // 3️⃣ Save Production and Deduct Ingredients
+    \DB::transaction(function () use ($request, $outputs, $totalValue, $hasVariance, $notes, $flourKgs) {
+        $production = \App\Models\Production::create([
             'user_id'         => \Auth::id(),
             'production_date' => $request->production_date,
-            'flour_bags'      => $request->flour_bags,
+            'flour_bags'      => $flourKgs / 50, // store still in bags internally
             'total_value'     => $totalValue,
             'has_variance'    => $hasVariance ? 1 : 0,
             'variance_notes'  => trim($notes) ?: null,
-
-            // Keep your existing columns in schema:
             'buns'            => (int)($outputs['buns'] ?? 0),
             'small_breads'    => (int)($outputs['small_breads'] ?? 0),
             'big_breads'      => (int)($outputs['big_breads'] ?? 0),
@@ -105,48 +96,71 @@ class ProductionController extends Controller
             'birthday_cakes'  => (int)($outputs['birthday_cakes'] ?? 0),
         ]);
 
-        // Ingredients come as: ingredients[ingredient_id] = quantity
+        // Deduct ingredient usage in kilograms
         $ingredientInputs = $request->input('ingredients', []);
-        if (!empty($ingredientInputs)) {
-            foreach ($ingredientInputs as $id => $qty) {
-                $qty = (float) $qty;
-                if ($qty <= 0) continue;
+        foreach ($ingredientInputs as $id => $qtyKg) {
+            $qtyKg = (float) $qtyKg;
+            if ($qtyKg <= 0) continue;
 
-                $ingredient = \App\Models\Ingredient::findOrFail($id);
+            $ingredient = \App\Models\Ingredient::findOrFail($id);
 
-                // Guard: prevent using more than in stock
-                if ($qty > (float) $ingredient->stock) {
-                    throw new \Exception("Not enough stock for {$ingredient->name}. Available: {$ingredient->stock} {$ingredient->unit}");
-                }
-
-                $cost = $qty * (float) $ingredient->unit_cost;
-
-                $production->ingredientUsages()->create([
-                    'ingredient_id' => $ingredient->id,
-                    'quantity'      => $qty,
-                    'unit'          => $ingredient->unit,
-                    'cost'          => $cost,
-                ]);
-
-                // Deduct stock
-                $ingredient->decrement('stock', $qty);
-
-                // Add produced items to bakery stock
-                foreach ($outputs as $product => $qty) {
-                    if ((int)$qty <= 0) continue;
-                    $stock = \App\Models\BakeryStock::firstOrCreate(
-                        ['product' => $product],
-                        ['quantity' => 0]
-                    );
-                    $stock->increment('quantity', (int)$qty);
-                }
+            if ($qtyKg > (float) $ingredient->stock) {
+                throw new \Exception("Not enough stock for {$ingredient->name}. Available: {$ingredient->stock} {$ingredient->unit}");
             }
+
+            $cost = $qtyKg * (float) $ingredient->unit_cost;
+
+            $production->ingredientUsages()->create([
+                'ingredient_id' => $ingredient->id,
+                'quantity'      => $qtyKg,
+                'unit'          => $ingredient->unit,
+                'cost'          => $cost,
+            ]);
+
+            // Deduct from chef's ingredient stock directly
+            $ingredient->decrement('stock', $qtyKg);
         }
+
+        // Update bakery stock per product
+        // ✅ Update bakery stock per product (fixed logic)
+foreach ($outputs as $product => $qty) {
+    $qty = (int) $qty;
+
+    // Skip invalid or zero quantities
+    if ($qty <= 0) continue;
+
+    // Match only valid product names from your database
+    $validProducts = [
+        'buns', 'small_breads', 'big_breads', 'donuts',
+        'half_cakes', 'block_cakes', 'slab_cakes', 'birthday_cakes30k', 'quarter_breads', 'birthday_cakes50k', 
+        'mandazis', 'musiba_tayi', 'scornes', 'chapatys', 'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls'
+    ];
+
+    // If the product name doesn't match any in stock table, skip
+    if (!in_array($product, $validProducts)) continue;
+
+    // Create or update bakery stock correctly
+    $stock = \App\Models\BakeryStock::firstOrCreate(
+        ['product' => $product],
+        ['quantity' => 0]
+    );
+
+    // Log debug info temporarily (you can remove later)
+    \Log::info("Updating stock for {$product}", [
+        'previous' => $stock->quantity,
+        'added' => $qty
+    ]);
+
+    // Increment stock correctly
+    $stock->increment('quantity', $qty);
+}
+
     });
 
     return redirect()->route('chef.productions.index')
         ->with('success', 'Production recorded successfully.');
 }
+
     public function show(Production $production)
     {
         // Ensure this chef can only see their own records

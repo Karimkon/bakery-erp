@@ -32,7 +32,7 @@ class SaleController extends Controller
             'birthday_cakes'=> 'Birthday Cakes',
         ];
 
-        $stocks = \App\Models\ShopStock::where('shop_name','Kampala Main Shop')->get()
+        $stocks = \App\Models\ShopStock::where('shop_name','Bakery Main Shop')->get()
         ->keyBy('product_type'); // quick lookup by product_type
 
         return view('sales.sales.create', compact('products','stocks'));
@@ -48,7 +48,7 @@ class SaleController extends Controller
             'notes'          => 'nullable|string|max:255',
         ]);
 
-        $stock = ShopStock::where('shop_name', 'Kampala Main Shop')
+        $stock = ShopStock::where('shop_name', 'Bakery Main Shop')
             ->where('product_type', $request->product_type)
             ->first();
 
@@ -159,7 +159,7 @@ class SaleController extends Controller
         $this->authorize('delete', $sale);
 
         // Optionally return stock if sale deleted
-        $stock = ShopStock::where('shop_name','Kampala Main Shop')
+        $stock = ShopStock::where('shop_name','Bakery Main Shop')
             ->where('product_type',$sale->product_type)
             ->first();
 

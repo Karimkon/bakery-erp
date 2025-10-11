@@ -13,7 +13,7 @@ class ShopDispatchController extends Controller
      */
     public function index()
     {
-        $stocks = ShopStock::where('shop_name', 'Kampala Main Shop')
+        $stocks = ShopStock::where('shop_name', 'Bakery Main Shop')
             ->orderBy('product_type')
             ->paginate(20);
 
@@ -50,7 +50,7 @@ class ShopDispatchController extends Controller
         ]);
 
         $stock = ShopStock::firstOrNew([
-            'shop_name'    => 'Kampala Main Shop',
+            'shop_name'    => 'Bakery Main Shop',
             'product_type' => $request->product_type,
         ]);
 
@@ -66,7 +66,7 @@ class ShopDispatchController extends Controller
 
         return redirect()
             ->route('admin.shop-dispatch.index')
-            ->with('success', "{$request->quantity} {$request->product_type} dispatched to Kampala Shop successfully.");
+            ->with('success', "{$request->quantity} {$request->product_type} dispatched to Bakery Shop successfully.");
     }
 
     /**

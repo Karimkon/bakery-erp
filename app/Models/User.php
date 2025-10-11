@@ -48,4 +48,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function dispatches()
+{
+    return $this->hasMany(\App\Models\Dispatch::class, 'driver_id');
+}
+
 }

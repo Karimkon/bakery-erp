@@ -22,7 +22,7 @@
                     <th>Flour</th>
                     <th>Outputs</th>
                     <th>Total (UGX)</th>
-                    <th>Variance</th>
+                    <!-- <th>Variance</th> -->
                     <th>Action</th>
                 </tr>
             </thead>
@@ -42,13 +42,13 @@
                         Birthday: {{ $p->birthday_cakes }}
                     </td>
                     <td>{{ number_format($p->total_value) }}</td>
-                    <td>
+                    <!-- <td>
                         @if($p->has_variance)
                             <span class="badge bg-danger">Variance</span>
                         @else
                             <span class="badge bg-success">OK</span>
                         @endif
-                    </td>
+                    </td> -->
                     <td>
                         <a href="{{ route('chef.productions.show', $p->id) }}" 
                            class="btn btn-sm btn-outline-primary">

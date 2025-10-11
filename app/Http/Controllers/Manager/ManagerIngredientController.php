@@ -24,12 +24,20 @@ class ManagerIngredientController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'      => 'required|string|max:255|unique:ingredients,name',
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('ingredients')->where(function ($query) use ($request) {
+                    return $query->where('chef_id', $request->chef_id);
+                }),
+            ],
             'unit'      => 'required|string|max:50',
             'unit_cost' => 'required|numeric|min:0',
             'stock'     => 'nullable|numeric|min:0',
             'chef_id'   => 'nullable|exists:users,id'
         ]);
+
 
         Ingredient::create($request->all());
 

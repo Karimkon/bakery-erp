@@ -108,10 +108,11 @@ class ManagerDispatchController extends Controller
             $opening     = (int) ($openings[$product] ?? 0);
             $available   = $opening + $dispatched;
 
-            if ($sold > $available) {
-                return back()->withErrors(["items.$product.sold_cash" =>
-                    "Sold ($sold) cannot exceed Opening+Dispatched ($available) for $product"])->withInput();
-            }
+            if ($dispatched > $available) {
+            return back()->withErrors(["items.$product.dispatched_qty" =>
+                "Cannot dispatch more ($dispatched) than available in bakery stock ($available) for $product."])->withInput();
+        }
+
 
             $remaining = $available - $sold;
             $unitPrice = (float) $price;

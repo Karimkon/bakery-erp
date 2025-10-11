@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('shop_stocks', function (Blueprint $table) {
             $table->id();
-            $table->string('shop_name'); // e.g. Kampala Main Shop
+            $table->string('shop_name'); // e.g. Bakery Main Shop
             $table->string('product_type'); // buns, breads
             $table->integer('opening_stock')->default(0);
             $table->integer('dispatched')->default(0);

@@ -15,8 +15,8 @@
                 <input type="date" name="production_date" class="form-control" required>
             </div>
             <div class="col-md-6">
-                <label class="form-label">Flour (bags)</label>
-                <input type="number" step="0.01" name="flour_bags" class="form-control" required>
+                <label class="form-label">Flour Used (Kgs)</label>
+                <input type="number" step="0.01" name="flour_kgs" class="form-control" required>
             </div>
         </div>
 

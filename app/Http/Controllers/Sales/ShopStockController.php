@@ -9,7 +9,7 @@ class ShopStockController extends Controller
 {
     public function index()
     {
-        $stocks = ShopStock::where('shop_name','Kampala Main Shop')->get();
+        $stocks = ShopStock::where('shop_name','Bakery Main Shop')->get();
         return view('sales.stock.index', compact('stocks'));
     }
 }

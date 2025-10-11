@@ -1,9 +1,9 @@
 @extends('admin.layouts.app')
-@section('title','Shop Report - Kampala Main Shop')
+@section('title','Shop Report - Bakery Shop')
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-graph-up me-2"></i>Shop Report - Kampala Main Shop</h4>
+    <h4 class="mb-0"><i class="bi bi-graph-up me-2"></i> Bakery Shop</h4>
 </div>
 
 <form method="GET" class="card shadow-sm mb-4">
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
             responsive: true,
             plugins: {
                 legend: { position: 'top' },
-                title: { display: true, text: 'Shop Stock Overview (Kampala Main Shop)' }
+                title: { display: true, text: 'Shop Stock Overview (Bakery Main Shop)' }
             },
             scales: {
                 y: { beginAtZero: true }

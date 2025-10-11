@@ -154,6 +154,11 @@ body {
             <i class="bi bi-box-seam"></i> Ingredients
         </a>
 
+        <a href="{{ route('manager.shop-dispatch.index') }}" class="{{ request()->routeIs('manager.shop-dispatch.*') ? 'active' : '' }}">
+            <i class="bi bi-shop"></i> Shop Dispatch
+        </a>
+
+
         <a href="{{ route('manager.damages.index') }}" class="{{ request()->routeIs('manager.damages.*') ? 'active' : '' }}">
             <i class="bi bi-exclamation-triangle"></i> Damages
         </a>

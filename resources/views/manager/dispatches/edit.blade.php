@@ -53,7 +53,7 @@
                 <tr>
                     <th>Product</th>
                     <th>Opening</th>
-                    <th>All Remaining items</th>
+                    <th>Driver's Remaining items</th>
                     <th>Dispatched</th>
                     <th>Qty Sold (Cash)</th>
                     <!-- <th>Qty Sold (Credit)</th> -->

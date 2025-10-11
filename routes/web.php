@@ -172,7 +172,7 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
     ->name('dispatches.openings');
 
-    // 🟦 NEW: Shop Dispatch (Kampala Main Shop)
+    // 🟦 NEW: Shop Dispatch (Bakery Main Shop)
     Route::resource('shop-dispatch', \App\Http\Controllers\Admin\ShopDispatchController::class)
         ->except(['show']); 
 
@@ -276,6 +276,14 @@ Route::get('production/export-excel', [ManagerReportsController::class, 'exportE
 
     // web.php
 Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamageController::class, 'markAsSold'])->name('damages.sold');
+
+    // 🟩 Manager Shop Dispatch (for managing shop deliveries)
+    Route::resource('shop-dispatch', \App\Http\Controllers\Manager\ManagerShopDispatchController::class)
+        ->except(['show']);
+
+    // 🟩 Manager Shop Reports
+    Route::get('shop-report', [\App\Http\Controllers\Manager\ManagerShopReportController::class, 'index'])
+        ->name('shop.report');
 
     });
 

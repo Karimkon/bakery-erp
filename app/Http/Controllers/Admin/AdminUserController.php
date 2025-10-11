@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+
 
 class AdminUserController extends Controller
 {
@@ -73,9 +75,25 @@ class AdminUserController extends Controller
         return redirect()->route('admin.users.index')->with('success','User updated successfully.');
     }
 
-    public function destroy(User $user)
-    {
+public function destroy(User $user)
+{
+    if ($user->role === 'driver') {
+        // Disable FK checks temporarily
+        \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+        $user->dispatches()->delete();
         $user->delete();
-        return redirect()->route('admin.users.index')->with('success','User deleted successfully.');
+
+        // Enable FK checks
+        \DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+    } else {
+        $user->delete();
     }
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'User and related dispatches deleted successfully.');
+}
+
+
+
 }
