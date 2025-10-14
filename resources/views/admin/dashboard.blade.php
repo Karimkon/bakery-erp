@@ -62,6 +62,24 @@
     </div>
 </div>
 
+ <div class="col-6 col-md-3">
+    <div class="card h-100 shadow-sm p-3">
+        <div class="d-flex justify-content-between">
+            <div>
+                <small class="text-muted">{{ $title }} Bakery Sales</small>
+                <h4 class="mb-0 text-success">{{ number_format($bakerySales, 0) }} UGX</h4>
+                <div class="text-muted small mt-1">
+                    Cash: {{ number_format($bakerySalesCash,0) }} 
+                </div>
+            </div>
+            <div class="icon-circle bg-success text-white">
+                <i class="bi bi-shop"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 
         <div class="col-6 col-md-3">
             <div class="card h-100 shadow-sm p-3">
@@ -88,6 +106,7 @@
         </div>
     </div>
 
+     
     <!-- Split cards -->
     <div class="row g-3 mb-4">
         <div class="col-md-6">
@@ -136,21 +155,30 @@
                 </div>
             </div>
 
+          
+
+
             <div class="card p-3 shadow-sm">
                 <h6 class="mb-2">Recent Productions</h6>
                 <div class="table-responsive" style="max-height:220px; overflow:auto;">
                     <table class="table table-sm mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr><th>Date</th><th class="text-end">Value</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach($recentProductions as $p)
-                                <tr>
-                                    <td>{{ \Carbon\Carbon::parse($p->production_date)->format('d M') }}</td>
-                                    <td class="text-end">{{ number_format($p->total_value,0) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
+           <thead class="table-light sticky-top">
+    <tr>
+        <th>Date</th>
+        <th>Chef</th>
+        <th class="text-end">Value</th>
+    </tr>
+</thead>
+<tbody>
+    @foreach($recentProductions as $p)
+        <tr>
+            <td>{{ \Carbon\Carbon::parse($p->production_date)->format('d M') }}</td>
+            <td>{{ $p->user?->name ?? '—' }}</td>  <!-- Use 'user' relationship as chef -->
+            <td class="text-end">{{ number_format($p->total_value, 0) }}</td>
+        </tr>
+    @endforeach
+</tbody>
+
                     </table>
                 </div>
             </div>

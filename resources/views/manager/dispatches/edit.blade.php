@@ -46,6 +46,7 @@
     <br>
     <button type="button" id="clear-signature" class="btn btn-secondary btn-sm mt-2">Clear</button>
     <input type="hidden" name="driver_signature" id="driver_signature" value="{{ old('driver_signature', $dispatch->driver_signature) }}">
+    <input type="hidden" id="original_back_debt" value="{{ old('back_debt', $dispatch->driver->back_debt) }}">
 
     <div class="table-responsive mt-3">
         <table class="table table-sm table-bordered align-middle" id="items-table">
@@ -224,9 +225,14 @@
 
         <div class="col-md-6">
             <label class="form-label fw-bold">Actual Cash Received (UGX)</label>
-            <input type="number" step="0.01" name="cash_received" id="actual_cash_received" class="form-control form-control-lg"
-                   value="{{ old('cash_received', $dispatch->cash_received) }}" placeholder="Enter actual amount">
-            <small class="text-muted">Enter actual amount received. Leave blank to use calculated value.</small>
+            <input type="number" step="0.01" name="cash_received" id="actual_cash_received" 
+                class="form-control form-control-lg"
+                value="{{ old('cash_received', $dispatch->cash_received) }}"
+                placeholder="Leave empty to auto-fill">
+            <small class="text-muted">
+                💡 <strong>Leave blank</strong> if driver paid the expected amount ({{ number_format($dispatch->expected_cash_after_deductions ?? 0, 0) }} UGX).
+                Only enter a value if the actual amount differs.
+            </small>
         </div>
     </div>
 
@@ -248,21 +254,11 @@
             <input type="text" id="amount_driver_should_pay" class="form-control bg-success bg-opacity-25 text-success fw-bold" readonly>
         </div>
 
-        <div class="col-md-3">
-            <label class="form-label">Shortfall / Overpayment (UGX)</label>
-            <input type="text" id="shortfall_display" class="form-control bg-light fw-bold" readonly>
-            <small class="text-muted">Expected - Actual</small>
-        </div>
     </div>
 
     <div class="row g-3 mt-3">
-        <div class="col-md-6">
-            <label class="form-label">Driver Back Debt (UGX)</label>
-            <input type="text" id="back_debt_display" class="form-control bg-danger bg-opacity-25 text-danger fw-bold" readonly>
-            <small class="text-muted">Previous debt + shortfall</small>
-        </div>
 
-        <div class="col-md-6">
+        <div class="col-md-12">
             <label class="form-label">Balance Due (UGX)</label>
             <input type="text" id="balance_due_display" class="form-control bg-info bg-opacity-25 fw-bold fs-5" readonly>
             <small class="text-muted">Remaining stock + Back debt - Actual cash</small>
@@ -290,9 +286,9 @@ $(function () {
     const threshold = Number(@json(config('commissions.threshold', 1000000)));
     const rates = @json(config('commissions.rates'));
     const thresholdBasis = @json(config('commissions.threshold_basis', 'available'));
-    const originalBackDebt = parseFloat(@json($dispatch->driver->back_debt ?? 0));
+    let originalBackDebt = parseFloat($('#original_back_debt').val() || 0);
 
-    let expenseIndex = {{ count($existingExpenses) }};
+    let expenseIndex = {{ isset($existingExpenses) ? count($existingExpenses) : 0 }};
 
     // Utility functions
     function parseIntSafe(value) {
@@ -380,14 +376,22 @@ $(function () {
         const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
         const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
         let soldCash = parseIntSafe($row.find('.sold-cash').val());
+        
+        // Read credit sales from data attribute (set by admin, not editable)
+        const soldCredit = parseIntSafe($row.data('sold-credit'));
+        
         const maxAvailable = opening + dispatched;
 
-        if (soldCash > maxAvailable) {
-            soldCash = maxAvailable;
+        // Manager can only edit cash sales, but must account for existing credit sales
+        const totalSold = soldCash + soldCredit;
+        
+        if (totalSold > maxAvailable) {
+            // If total exceeds max, reduce only the cash portion
+            soldCash = Math.max(0, maxAvailable - soldCredit);
             $row.find('.sold-cash').val(soldCash);
         }
 
-        const remaining = maxAvailable - soldCash;
+        const remaining = maxAvailable - (soldCash + soldCredit);
         $row.find('.remaining-col').text(remaining);
     }
 
@@ -400,11 +404,13 @@ $(function () {
             const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
             const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
             const soldCash = parseIntSafe($r.find('.sold-cash').val());
+            const soldCredit = parseIntSafe($r.data('sold-credit')); // From data attribute
+            const totalSold = soldCash + soldCredit;
             const unitPrice = parseFloatSafe($r.data('price'));
 
             let qtyForBasis = 0;
             if (thresholdBasis === 'sold') {
-                qtyForBasis = soldCash;
+                qtyForBasis = totalSold;
             } else if (thresholdBasis === 'dispatched') {
                 qtyForBasis = dispatched;
             } else {
@@ -420,8 +426,10 @@ $(function () {
             const $r = $(this);
             const product = $r.data('product');
             const soldCash = parseIntSafe($r.find('.sold-cash').val());
+            const soldCredit = parseIntSafe($r.data('sold-credit')); // From data attribute
+            const totalSold = soldCash + soldCredit;
             const rate = parseFloatSafe(rates[product] || 0);
-            const commission = Math.round(soldCash * rate * multiplier);
+            const commission = Math.round(totalSold * rate * multiplier);
 
             $r.find('.commission-col').text(formatCurrency(commission));
             $r.find('.commission-value').val(commission);
@@ -431,61 +439,82 @@ $(function () {
     // Recompute all totals
     function recomputeTotals() {
         let calculatedCashReceived = 0;
-        let totalSales = 0;
         let totalItemsSold = 0;
         let commissionTotal = 0;
         let remainingInventoryValue = 0;
+        let creditSalesValue = 0;
 
+        // Loop through each product row
         $('#items-table tbody tr').each(function() {
-            const $r = $(this);
-            const soldCash = parseIntSafe($r.find('.sold-cash').val());
-            const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
-            const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
-            const unitPrice = parseFloatSafe($r.data('price'));
-            const commission = parseFloatSafe($r.find('.commission-value').val());
+            const $row = $(this);
+            const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
+            const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
+            const soldCash = parseIntSafe($row.find('.sold-cash').val());
+            const soldCredit = parseIntSafe($row.data('sold-credit')); // From data attribute
+            const unitPrice = parseFloatSafe($row.data('price'));
+            const commission = parseFloatSafe($row.find('.commission-value').val());
 
-            const remaining = (opening + dispatched) - soldCash;
+            const totalSold = soldCash + soldCredit;
+            const remaining = (opening + dispatched) - totalSold;
 
             calculatedCashReceived += soldCash * unitPrice;
-            totalSales += soldCash * unitPrice;
-            totalItemsSold += soldCash;
+            creditSalesValue += soldCredit * unitPrice;
+            totalItemsSold += totalSold;
             commissionTotal += commission;
             remainingInventoryValue += remaining * unitPrice;
+
+            // Update remaining display
+            $row.find('.remaining-col').text(remaining);
         });
 
-        $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
+        // Get actual cash received
+        let actualCashReceived = parseFloatSafe($('#actual_cash_received').val().replace(/,/g, ''));
+        
+        // Calculate total driver expenses
+        const driverExpenses = calculateTotalExpenses();
 
-        let actualCashReceived = parseFloatSafe($('#actual_cash_received').val());
-        if (actualCashReceived === 0) {
-            actualCashReceived = calculatedCashReceived;
+        // Expected after deductions
+        const expectedAfterDeductions = calculatedCashReceived - commissionTotal - driverExpenses;
+
+        // If no actual cash entered, use expected
+        if (!actualCashReceived || isNaN(actualCashReceived)) {
+            actualCashReceived = expectedAfterDeductions;
         }
 
-        const driverExpenses = calculateTotalExpenses();
-        const expectedAfterDeductions = calculatedCashReceived - commissionTotal - driverExpenses;
+        // Calculate shortfall (positive = underpaid, negative = overpaid)
         const shortfall = expectedAfterDeductions - actualCashReceived;
 
+        // Update back debt based on shortfall
         let newBackDebt = originalBackDebt;
         if (shortfall > 0) {
+            // Underpayment - add to debt
             newBackDebt += shortfall;
         } else if (shortfall < 0) {
-            newBackDebt = Math.max(0, newBackDebt + shortfall);
+            // Overpayment - reduce debt
+            newBackDebt = Math.max(0, newBackDebt + shortfall); // shortfall is negative
         }
 
-        const balanceDue = remainingInventoryValue + newBackDebt - actualCashReceived;
+        // Balance due = remaining inventory + credit sales + current back debt
+        const balanceDue = remainingInventoryValue + creditSalesValue + originalBackDebt;
 
+
+
+        // Update display fields
+        $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
         $('#commission_total_display').val(formatCurrency(commissionTotal));
         $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
         $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
-        $('#shortfall_display').val(formatCurrency(shortfall));
         $('#back_debt_display').val(formatCurrency(newBackDebt));
         $('#balance_due_display').val(formatCurrency(balanceDue));
 
+        // Update hidden form fields
         $('#commission_total').val(commissionTotal.toFixed(2));
-        $('#total_sales_value').val(totalSales.toFixed(2));
+        $('#total_sales_value').val((calculatedCashReceived + creditSalesValue).toFixed(2));
         $('#total_items_sold').val(totalItemsSold);
+        $('#driver_expenses_total').val(driverExpenses.toFixed(2));
     }
 
-    // Event handlers
+    // Event handlers - only watch cash input
     $('#items-table').on('input change', '.sold-cash', function() {
         const $row = $(this).closest('tr');
         recomputeRow($row);
@@ -564,12 +593,16 @@ $(function () {
 
     // Form submission
     $('form').on('submit', function(e) {
-        if (!$('#actual_cash_received').val()) {
-            $('#actual_cash_received').val($('#calculated_cash_received').val().replace(/,/g, ''));
+        const actualCash = $('#actual_cash_received').val();
+        
+        // If manager didn't enter actual cash, use expected after deductions
+        if (!actualCash || actualCash == '' || actualCash == '0') {
+            const expectedAfterDeductions = parseFloat($('#expected_after_deductions_display').val().replace(/,/g, ''));
+            $('#actual_cash_received').val(expectedAfterDeductions.toFixed(2));
         }
         
-        const signatureData = canvas.toDataURL();
-        $('#driver_signature').val(signatureData);
+        // Save signature
+        $('#driver_signature').val(canvas.toDataURL());
     });
 });
 </script>

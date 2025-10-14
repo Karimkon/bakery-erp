@@ -3,7 +3,7 @@
 return [
     // If the total value the driver carries today (opening + dispatched) is >= this,
     // use the full per-piece rates. Otherwise use half.
-    'threshold' => 1_000_000, // UGX
+    'threshold' => 1000000, // UGX (changed from 1_000_000)
 
     'rates' => [
         'big_breads'     => 200,
@@ -16,7 +16,6 @@ return [
         'birthday_cakes' => 200,
         'quarter_breads' => 100,
         'mandazis'       => 200,
-
     ],
 
     // How to measure the threshold. Defaults to value of (opening + dispatched).

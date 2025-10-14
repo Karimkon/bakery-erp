@@ -209,6 +209,9 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
         ->name('expenses.driver-analysis');
     Route::get('expenses/export', [AdminExpenseController::class, 'export'])
         ->name('expenses.export');
+
+        Route::get('ingredients-overview', [App\Http\Controllers\Admin\IngredientController::class, 'overview'])
+    ->name('ingredients.overview');
     
 });
 
@@ -297,6 +300,15 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
 
     Route::get('/dispatches/history/{driver}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'history'])
     ->name('dispatches.history');
+
+    Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
+    ->name('ingredients.overview');
+
+    Route::get('ingredients/chef/{chefId}', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'byChef'])
+        ->name('ingredients.byChef');
+Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
+    ->name('ingredients.overview');
+
 
     });
 

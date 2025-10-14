@@ -10,6 +10,9 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\Sale; 
+
 
 class DashboardController extends Controller
 {
@@ -74,10 +77,21 @@ class DashboardController extends Controller
             ->orderBy('dispatch_no', 'desc')
             ->limit(10)
             ->get();
+$recentProductions = Production::with('user')
+    ->orderBy('production_date', 'desc')
+    ->limit(10)
+    ->get();
 
-        $recentProductions = Production::orderBy('production_date', 'desc')
-            ->limit(10)
-            ->get();
+    // Total Bakery Shop Sales (filtered by date range)
+$bakerySales = Sale::whereDate('created_at', '>=', $from->toDateString())
+    ->whereDate('created_at', '<=', $to->toDateString())
+    ->sum('total_price');
+
+// Optional: split by payment method
+$bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
+    ->whereDate('created_at', '<=', $to->toDateString())
+    ->where('payment_method', 'cash')
+    ->sum('total_price');
 
         // Chart: last 7 days production & dispatch values (makes a continuous date series)
         $chartDays = 7;
@@ -140,7 +154,9 @@ class DashboardController extends Controller
             'prodSeries',
             'dispSeries',
             'bakeryStocks',
-            'flourUsed'
+            'flourUsed',
+            'bakerySales',
+            'bakerySalesCash'
         ));
     }
 }
