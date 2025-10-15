@@ -22,18 +22,19 @@ class ManagerShopDispatchController extends Controller
     public function create()
     {
         $products = [
-            'buns'          => 'Buns',
-            'small_breads'  => 'Small Breads',
-            'big_breads'    => 'Big Breads',
-            'donuts'        => 'Donuts',
-            'half_cakes'    => 'Half Cakes',
-            'block_cakes'   => 'Block Cakes',
-            'slab_cakes'    => 'Slab Cakes',
-            'birthday_cakes50'=> 'Birthday Cakes 50,000',
-            'birthday_cakes30'=> 'Birthday Cakes 30,000',
-            'quarter_breads'=> 'Quarter Breads',
-            'mandazis'      => 'Mandazis',
-        ];
+        'buns'              => 'Buns',
+        'small_breads'      => 'Small Breads',
+        'big_breads'        => 'Big Breads',
+        'donuts'            => 'Donuts',
+        'half_cakes'        => 'Half Cakes',
+        'block_cakes'       => 'Block Cakes',
+        'slab_cakes'        => 'Slab Cakes',
+        'birthday_cakes50'  => 'Birthday Cakes (50k)',
+        'birthday_cakes30'  => 'Birthday Cakes (30k)',
+        'quarter_breads'    => 'Quarter Breads',
+        'mandazis'          => 'Mandazis',
+    ];
+
 
         return view('manager.shop_dispatch.create', compact('products'));
     }
@@ -97,7 +98,8 @@ public function store(Request $request)
     {
         $products = [
             'buns','small_breads','big_breads','donuts',
-            'half_cakes','block_cakes','slab_cakes','birthday_cakes'
+            'half_cakes','block_cakes','slab_cakes','birthday_cakes30',
+            'birthday_cakes50','quarter_breads','mandazis','toasted_bread',
         ];
 
         return view('manager.shop_dispatch.edit', compact('shopStock','products'));

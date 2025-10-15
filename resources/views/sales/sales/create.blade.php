@@ -21,8 +21,17 @@
                         <div class="row g-3">
                             <div class="col-12">
                                 <label class="form-label">Product</label>
-                                <input type="text" name="product_type" id="product_type" class="form-control" placeholder="Select from right or type…" required>
-                                <div class="form-text">Examples: buns, small_breads, big_breads, donuts, half_cakes, block_cakes, slab_cakes, birthday_cakes</div>
+                                <select name="product_type" id="product_type" class="form-select" required>
+                                    <option value="">-- Select Product --</option>
+                                    @foreach($products as $key => $label)
+                                        <option value="{{ $key }}" 
+                                                data-price="{{ $stocks[$key]->unit_price ?? 0 }}"
+                                                data-remaining="{{ $stocks[$key]->remaining ?? 0 }}">
+                                            {{ $label }} (Stock: {{ $stocks[$key]->remaining ?? 0 }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Select a product from the dropdown or use Quick Pick below</div>
                             </div>
 
                             <div class="col-6 col-md-4">
@@ -30,7 +39,6 @@
                                 <input type="number" name="quantity" id="quantity" class="form-control" min="1" value="1" required>
                                 <div id="stockInfo" class="form-text text-primary"></div>
                             </div>
-
 
                             <div class="col-6 col-md-4">
                                 <label class="form-label">Unit Price (UGX)</label>
@@ -78,43 +86,32 @@
                 <div class="card-body">
                     <h6 class="text-muted">Quick Pick</h6>
                     <div class="row g-2" id="quickPick">
-                        {{-- Example defaults; adjust to your bakery prices --}}
-                        @php
-                            $items = [
-                                ['key'=>'buns','label'=>'Buns','price'=>1000],
-                                ['key'=>'small_breads','label'=>'Small Bread','price'=>2500],
-                                ['key'=>'big_breads','label'=>'Big Bread','price'=>4000],
-                                ['key'=>'donuts','label'=>'Donut','price'=>1000],
-                                ['key'=>'half_cakes','label'=>'Half Cake','price'=>6000],
-                                ['key'=>'block_cakes','label'=>'Block Cake','price'=>15000],
-                                ['key'=>'slab_cakes','label'=>'Slab Cake','price'=>20000],
-                                ['key'=>'birthday_cakes','label'=>'Birthday Cake','price'=>50000],
-                            ];
-                        @endphp
-
-                        @foreach($items as $it)
+                        {{-- ✅ FIXED: Now loads ALL products from controller --}}
+                        @foreach($products as $key => $label)
                             @php
-                                $remaining = $stocks[$it['key']]->remaining ?? 0;
+                                $stock = $stocks[$key] ?? null;
+                                $remaining = $stock ? $stock->remaining : 0;
+                                $price = $stock ? $stock->unit_price : 0;
                             @endphp
                             <div class="col-6">
                                 <div class="card border pos-card" 
-                                        data-ptype="{{ $it['key'] }}" 
-                                        data-price="{{ $it['price'] }}"
-                                        data-remaining="{{ $remaining }}">
+                                     data-ptype="{{ $key }}" 
+                                     data-price="{{ $price }}"
+                                     data-remaining="{{ $remaining }}">
                                     <div class="card-body py-3">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
-                                                <div class="fw-semibold">{{ $it['label'] }}</div>
-                                                <small class="text-muted">UGX {{ number_format($it['price']) }}</small>
+                                                <div class="fw-semibold">{{ $label }}</div>
+                                                <small class="text-muted">UGX {{ number_format($price) }}</small>
                                             </div>
-                                            <span class="badge bg-info">Stock: {{ $remaining }}</span>
+                                            <span class="badge {{ $remaining > 0 ? 'bg-info' : 'bg-danger' }}">
+                                                Stock: {{ $remaining }}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            @endforeach
-
-
+                        @endforeach
                     </div>
                     <div class="mt-3 small text-muted">Tap a card to fill product & unit price automatically.</div>
                 </div>
@@ -137,7 +134,21 @@
         total.value = (Number(qty.value||0) * Number(unit.value||0)).toFixed(2);
     }
 
-    // Quick pick
+    // ✅ NEW: Update price when dropdown changes
+    ptype.addEventListener('change', function(){
+        const selected = this.options[this.selectedIndex];
+        if(selected && selected.value){
+            unit.value = selected.dataset.price || 0;
+            stockInfo.textContent = "Remaining stock: " + (selected.dataset.remaining || 0);
+            recalc();
+        } else {
+            unit.value = "";
+            stockInfo.textContent = "";
+            total.value = "";
+        }
+    });
+
+    // ✅ Quick pick cards
     document.querySelectorAll('.pos-card').forEach(card=>{
         card.addEventListener('click', ()=>{
             ptype.value = card.dataset.ptype;
@@ -148,7 +159,7 @@
         });
     });
 
-    // AJAX form submit
+    // ✅ AJAX form submit
     form.addEventListener('submit', async function(e){
         e.preventDefault();
 
@@ -170,7 +181,16 @@
                 let card = document.querySelector('.pos-card[data-ptype="'+data.product+'"]');
                 if(card){
                     card.dataset.remaining = data.remaining;
-                    card.querySelector('.badge').textContent = "Stock: " + data.remaining;
+                    let badge = card.querySelector('.badge');
+                    badge.textContent = "Stock: " + data.remaining;
+                    badge.className = data.remaining > 0 ? 'badge bg-info' : 'badge bg-danger';
+                }
+
+                // Update dropdown option
+                let option = ptype.querySelector('option[value="'+data.product+'"]');
+                if(option){
+                    option.dataset.remaining = data.remaining;
+                    option.textContent = option.textContent.replace(/Stock: \d+/, 'Stock: ' + data.remaining);
                 }
 
                 // Open receipt in a new tab
@@ -180,12 +200,11 @@
                 form.reset();
                 total.value = "";
                 stockInfo.textContent = "";
-            }
-
-            else {
+            } else {
                 alert(data.error || "Error processing sale.");
             }
         } catch(err){
+            console.error(err);
             alert("Network error, please try again.");
         }
     });

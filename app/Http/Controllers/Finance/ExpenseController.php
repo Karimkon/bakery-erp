@@ -24,21 +24,31 @@ class ExpenseController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'category' => 'required|string|max:100',
-            'description' => 'nullable|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'expense_date' => 'required|date',
-        ]);
+{
+    $validated = $request->validate([
+        'category' => 'required|string|max:100',
+        'description' => 'nullable|string|max:255',
+        'amount' => 'required|numeric|min:0',
+        'expense_date' => 'required|date',
+        'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048'
+    ]);
 
-        $validated['recorded_by'] = Auth::id();
+    $validated['recorded_by'] = Auth::id();
 
-        Expense::create($validated);
-
-        return redirect()->route('finance.expenses.index')
-            ->with('success', 'Expense recorded successfully.');
+    // Handle receipt upload
+    if ($request->hasFile('receipt')) {
+        $file = $request->file('receipt');
+        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('receipts', $filename, 'public'); // stored in storage/app/public/receipts
+        $validated['receipt'] = $path;
     }
+
+    Expense::create($validated);
+
+    return redirect()->route('finance.expenses.index')
+        ->with('success', 'Expense recorded successfully.');
+}
+
 
     public function show(Expense $expense)
     {

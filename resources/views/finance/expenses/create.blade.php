@@ -5,7 +5,7 @@
 @section('content')
 <h4 class="mb-3"><i class="bi bi-plus-circle me-2"></i> New Expense</h4>
 
-<form method="POST" action="{{ route('finance.expenses.store') }}">
+<form method="POST" action="{{ route('finance.expenses.store') }}" enctype="multipart/form-data">
     @csrf
     <div class="mb-3">
         <label class="form-label">Category</label>
@@ -23,6 +23,11 @@
     </div>
 
     <div class="mb-3">
+        <label class="form-label">Receipt (optional: PDF or Image)</label>
+        <input type="file" name="receipt" class="form-control" accept="image/*,.pdf">
+    </div>
+
+    <div class="mb-3">
         <label class="form-label">Expense Date</label>
         <input type="date" name="expense_date" class="form-control" required>
     </div>
@@ -30,4 +35,5 @@
     <button class="btn btn-success">Save Expense</button>
     <a href="{{ route('finance.expenses.index') }}" class="btn btn-secondary">Cancel</a>
 </form>
+
 @endsection

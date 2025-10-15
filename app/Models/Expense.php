@@ -14,11 +14,18 @@ class Expense extends Model
         'description',
         'amount',
         'expense_date',
-        'recorded_by'
+        'recorded_by',
+        'receipt'
     ];
 
     public function recorder()
     {
         return $this->belongsTo(User::class, 'recorded_by');
     }
+
+    public function receiptUrl()
+{
+    return $this->receipt ? asset('storage/' . $this->receipt) : null;
+}
+
 }

@@ -22,6 +22,7 @@
         <thead>
             <tr>
                 <th>#</th>
+                <th>Photo</th>
                 <th>Product</th>
                 <th>Quantity Left</th>
                 <th>Sold Quantity</th>
@@ -35,6 +36,18 @@
             @foreach($damages as $damage)
             <tr>
                 <td>{{ $damage->id }}</td>
+
+                <!-- Photo Column -->
+                <td>
+                    @if($damage->photo)
+                        <a href="{{ asset('storage/damage_photos/'.basename($damage->photo)) }}" target="_blank">
+                            <img src="{{ asset('storage/damage_photos/'.basename($damage->photo)) }}" width="50" class="img-thumbnail">
+                        </a>
+                    @else
+                        —
+                    @endif
+                </td>
+
                 <td>{{ ucfirst($damage->product) }}</td>
                 <td>{{ $damage->quantity }}</td>
                 <td>{{ $damage->sold_quantity ?? 0 }}</td>
@@ -54,22 +67,16 @@
                             @csrf
                             <button type="submit" class="btn btn-sm btn-danger">Reject</button>
                         </form>
-
-
-
                     @elseif($damage->status === 'approved')
-                        <!-- Sell Modal Trigger -->
-                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sellModal{{ $damage->id }}">
-                            Sell
-                        </button>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#sellModal{{ $damage->id }}">Sell</button>
 
-                        
-                        <form action="{{ route('admin.damages.destroy', $damage) }}" method="POST" class="d-inline">
+                        <form action="{{ route('admin.damages.destroy', $damage) }}" method="POST" class="d-inline" 
+                            onsubmit="return confirm('Are you sure you want to delete this damage? This will also remove the photo.')">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                            <button type="submit" class="btn btn-danger">Delete Damage</button>
                         </form>
-                        
+
                         <!-- Sell Modal -->
                         <div class="modal fade" id="sellModal{{ $damage->id }}" tabindex="-1" aria-hidden="true">
                             <div class="modal-dialog">
@@ -96,7 +103,6 @@
                                 </form>
                             </div>
                         </div>
-
                     @elseif($damage->status === 'sold')
                         <span class="badge bg-success">Sold</span>
                     @endif

@@ -210,6 +210,7 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::get('expenses/export', [AdminExpenseController::class, 'export'])
         ->name('expenses.export');
 
+
         Route::get('ingredients-overview', [App\Http\Controllers\Admin\IngredientController::class, 'overview'])
     ->name('ingredients.overview');
     
@@ -239,7 +240,7 @@ Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')-
     Route::resource('expenses', App\Http\Controllers\Finance\ExpenseController::class);
     Route::resource('deposits', App\Http\Controllers\Finance\BankDepositController::class);
     Route::resource('payrolls', App\Http\Controllers\Finance\PayrollController::class);
-
+    Route::get('/overview', [\App\Http\Controllers\Finance\OverviewController::class, 'index'])->name('overview');
 
 });
 

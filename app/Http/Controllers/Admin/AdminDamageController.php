@@ -85,9 +85,17 @@ public function markAsSold(Request $request, Damage $damage)
 
 public function destroy(Damage $damage)
 {
+    // Delete the photo file if exists
+    if ($damage->photo && file_exists(public_path('storage/damage_photos/' . basename($damage->photo)))) {
+        unlink(public_path('storage/damage_photos/' . basename($damage->photo)));
+    }
+
+    // Delete the damage record
     $damage->delete();
+
     return redirect()->route('admin.damages.index')->with('success', 'Damage deleted successfully.');
 }
+
 
 
 }

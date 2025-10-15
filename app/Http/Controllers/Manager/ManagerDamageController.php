@@ -40,8 +40,15 @@ class ManagerDamageController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            $validated['photo'] = $request->photo->store('damage_photos','public');
-        }
+    $damagePhotosPath = storage_path('app/public/damage_photos');
+
+    if (!file_exists($damagePhotosPath)) {
+        mkdir($damagePhotosPath, 0755, true);
+    }
+
+    $validated['photo'] = $request->photo->store('damage_photos','public');
+}
+
 
         $validated['manager_id'] = Auth::id();
         $damage = Damage::create($validated);

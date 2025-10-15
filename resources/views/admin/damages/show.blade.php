@@ -18,12 +18,25 @@
                     <h5>Notes:</h5> {{ $damage->notes }}
                 @endif
             </div>
+
             <div class="col-md-6">
+                <h5>Photo:</h5>
                 @if($damage->photo)
-                    <h5>Photo:</h5>
-                    <img src="{{ asset('storage/' . $damage->photo) }}" class="img-fluid rounded shadow-sm">
+                    @php
+                        $photoPath = asset('storage/damage_photos/' . basename($damage->photo));
+                    @endphp
+                    @if(Str::endsWith($damage->photo, ['pdf']))
+                        <a href="{{ $photoPath }}" target="_blank">
+                            <i class="bi bi-file-earmark-pdf fs-2 text-danger"></i>
+                        </a>
+                    @else
+                        <a href="{{ $photoPath }}" target="_blank">
+                            <img src="{{ $photoPath }}" class="img-thumbnail" style="max-width:150px; transition: transform 0.2s;" 
+                                 onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                        </a>
+                    @endif
                 @else
-                    <p>No photo uploaded</p>
+                    — 
                 @endif
             </div>
         </div>
@@ -43,8 +56,7 @@
         @elseif($damage->status === 'approved')
             <div class="mt-4">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sellModal">Sell</button>
-
-                <!-- Modal same as index modal -->
+                <!-- Modal code same as index -->
             </div>
         @endif
     </div>

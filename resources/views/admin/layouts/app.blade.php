@@ -347,13 +347,31 @@ body {
         </div>
     </div>
 </div>
+    
+
+<!-- Expenses -->
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#expensesCollapse">
+            <i class="bi bi-wallet2"></i> Expenses
+        </button>
+    </h2>
+    <div id="expensesCollapse" class="accordion-collapse collapse {{ request()->is('admin/expenses*') ? 'show' : '' }}">
+        <div class="accordion-body">
+            <a href="{{ route('admin.expenses.dashboard') }}" class="{{ request()->routeIs('admin.expenses.dashboard') ? 'active' : '' }}">
+                <i class="bi bi-bar-chart-line"></i> Dashboard
+            </a>
+            
+        </div>
+    </div>
+</div>
 
 
             <!-- Banking -->
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bankingCollapse">
-                        <i class="bi bi-bank"></i> Banking
+                        <i class="bi bi-bank"></i> Banking 
                     </button>           
                 </h2>
                 <div id="bankingCollapse" class="accordion-collapse collapse {{ request()->is('admin/bankings*') ? 'show' : '' }}">
@@ -364,6 +382,7 @@ body {
                     </div>
                 </div>
             </div>
+
 
             <a href="{{ route('admin.reports.index') }}" 
                 class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">

@@ -8,6 +8,10 @@
     <a href="{{ route('finance.expenses.create') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle"></i> Add Expense
     </a>
+
+    <a href="{{ route('finance.overview') }}" class="btn btn-success btn-sm">
+        <i class="bi bi-graph-up"></i> View Overview
+    </a>
 </div>
 
 @if(session('success'))
@@ -21,6 +25,7 @@
             <th>Category</th>
             <th>Description</th>
             <th class="text-end">Amount (UGX)</th>
+            <th>Receipt</th>
             <th>Recorded By</th>
             <th></th>
         </tr>
@@ -32,6 +37,15 @@
             <td>{{ $expense->category }}</td>
             <td>{{ $expense->description }}</td>
             <td class="text-end">{{ number_format($expense->amount) }}</td>
+            <td>
+                @if($expense->receipt)
+                    <a href="{{ asset('storage/' . $expense->receipt) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        View
+                    </a>
+                @else
+                    -
+                @endif
+            </td>
             <td>{{ $expense->recorder->name }}</td>
             <td>
                 <form action="{{ route('finance.expenses.destroy',$expense) }}" method="POST">
@@ -43,7 +57,7 @@
             </td>
         </tr>
         @empty
-        <tr><td colspan="6" class="text-center">No expenses found.</td></tr>
+        <tr><td colspan="7" class="text-center">No expenses found.</td></tr>
         @endforelse
     </tbody>
 </table>

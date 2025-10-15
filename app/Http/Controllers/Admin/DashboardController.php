@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Sale; 
+use App\Models\Expense;
 
 
 class DashboardController extends Controller
@@ -77,21 +78,26 @@ class DashboardController extends Controller
             ->orderBy('dispatch_no', 'desc')
             ->limit(10)
             ->get();
-$recentProductions = Production::with('user')
-    ->orderBy('production_date', 'desc')
-    ->limit(10)
-    ->get();
 
-    // Total Bakery Shop Sales (filtered by date range)
-$bakerySales = Sale::whereDate('created_at', '>=', $from->toDateString())
-    ->whereDate('created_at', '<=', $to->toDateString())
-    ->sum('total_price');
+        $recentProductions = Production::with('user')
+            ->orderBy('production_date', 'desc')
+            ->limit(10)
+            ->get();
 
-// Optional: split by payment method
-$bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
-    ->whereDate('created_at', '<=', $to->toDateString())
-    ->where('payment_method', 'cash')
-    ->sum('total_price');
+            // Total Bakery Shop Sales (filtered by date range)
+        $bakerySales = Sale::whereDate('created_at', '>=', $from->toDateString())
+            ->whereDate('created_at', '<=', $to->toDateString())
+            ->sum('total_price');
+
+        // Optional: split by payment method
+        $bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
+            ->whereDate('created_at', '<=', $to->toDateString())
+            ->where('payment_method', 'cash')
+            ->sum('total_price');
+
+        $expensesTotal = Expense::whereDate('expense_date', '>=', $from->toDateString())
+            ->whereDate('expense_date', '<=', $to->toDateString())
+            ->sum('amount');
 
         // Chart: last 7 days production & dispatch values (makes a continuous date series)
         $chartDays = 7;
@@ -156,7 +162,8 @@ $bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
             'bakeryStocks',
             'flourUsed',
             'bakerySales',
-            'bakerySalesCash'
+            'bakerySalesCash',
+            'expensesTotal'
         ));
     }
 }
