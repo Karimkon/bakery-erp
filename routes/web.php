@@ -168,7 +168,7 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::get('/dashboard', [AdminDashboardController::class,'index'])->name('dashboard');
     Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
-    Route::resource('ingredients', \App\Http\Controllers\Admin\IngredientController::class);
+   
     Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
     Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
     ->name('dispatches.openings');
@@ -213,6 +213,12 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
 
         Route::get('ingredients-overview', [App\Http\Controllers\Admin\IngredientController::class, 'overview'])
     ->name('ingredients.overview');
+
+
+    Route::get('ingredients/stock_history', [App\Http\Controllers\Admin\StockHistoryController::class, 'index'])
+    ->name('ingredients.stock_history');
+
+     Route::resource('ingredients', \App\Http\Controllers\Admin\IngredientController::class);
     
 });
 
@@ -302,12 +308,9 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
     Route::get('/dispatches/history/{driver}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'history'])
     ->name('dispatches.history');
 
-    Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
-    ->name('ingredients.overview');
-
     Route::get('ingredients/chef/{chefId}', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'byChef'])
         ->name('ingredients.byChef');
-Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
+    Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
     ->name('ingredients.overview');
 
 

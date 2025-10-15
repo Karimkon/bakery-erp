@@ -154,12 +154,9 @@ body {
             <i class="bi bi-box-seam"></i> Ingredients
         </a>
 
-        <a href="{{ route('manager.ingredients.overview') }}" class="{{ request()->routeIs('manager.ingredients.*') ? 'active' : '' }}">
-            <i class="bi bi-box-seam"></i> Ingredients
+        <a href="{{ route('manager.ingredients.overview') }}">
+                <i class="bi bi-pie-chart"></i> Ingredients Overview
         </a>
- <a href="{{ route('manager.ingredients.overview') }}">
-        <i class="bi bi-pie-chart"></i> Ingredients Overview
-    </a>
 
         <a href="{{ route('manager.shop-dispatch.index') }}" class="{{ request()->routeIs('manager.shop-dispatch.*') ? 'active' : '' }}">
             <i class="bi bi-shop"></i> Shop Dispatch

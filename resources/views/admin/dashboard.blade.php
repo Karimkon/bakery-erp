@@ -254,11 +254,66 @@
         </div>
     </div>
 
+
+    <!-- Stock Alert Modal -->
+<div class="modal fade" id="stockAlertModal" tabindex="-1" aria-labelledby="stockAlertLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="stockAlertLabel">Recent Stock Additions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        @if($recentStockAdditions->isEmpty())
+            <p class="text-muted">No recent stock additions.</p>
+        @else
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th>Quantity</th>
+              <th>Chef</th>
+              <th>Added By</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($recentStockAdditions as $stock)
+            <tr>
+              <td>{{ $stock->ingredient->name ?? '-' }}</td>
+              <td>{{ number_format($stock->quantity_added) }}</td>
+              <td>{{ $stock->chef->name ?? '-' }}</td>
+              <td>{{ $stock->addedBy->name ?? '-' }}</td>
+              <td>{{ $stock->created_at->format('d M Y H:i') }}</td>
+            </tr>
+            @endforeach
+          </tbody>
+        </table>
+        @endif
+      </div>
+      <div class="modal-footer">
+        <a href="{{ route('admin.ingredients.stock_history') }}" class="btn btn-primary btn-sm">View Full History</a>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 </div>
 
 <!-- Chart JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
+
+    document.addEventListener("DOMContentLoaded", function() {
+    @if(!empty($showStockModal) && $showStockModal)
+        var stockModal = new bootstrap.Modal(document.getElementById('stockAlertModal'));
+        stockModal.show();
+    @endif
+
+});
+
     const labels = {!! json_encode($labels) !!};
     const prodData = {!! json_encode($prodSeries) !!};
     const dispData = {!! json_encode($dispSeries) !!};

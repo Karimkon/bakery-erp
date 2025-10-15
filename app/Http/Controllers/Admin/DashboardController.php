@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Sale; 
 use App\Models\Expense;
+use App\Models\StockHistory;
+
 
 
 class DashboardController extends Controller
@@ -99,6 +101,20 @@ class DashboardController extends Controller
             ->whereDate('expense_date', '<=', $to->toDateString())
             ->sum('amount');
 
+        $recentStockAdditions = StockHistory::with(['ingredient', 'chef', 'addedBy'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5) // last 5 additions
+            ->get();
+
+        // Determine if modal should be shown (only if there are recent additions)
+        $showStockModal = !$recentStockAdditions->isEmpty() && !session()->get('seen_stock_modal', false);
+
+        // Mark it as seen in session if we are showing
+        if ($showStockModal) {
+            session()->put('seen_stock_modal', true);
+        }
+
+
         // Chart: last 7 days production & dispatch values (makes a continuous date series)
         $chartDays = 7;
         $chartFrom = Carbon::now()->subDays($chartDays - 1)->startOfDay();
@@ -163,7 +179,9 @@ class DashboardController extends Controller
             'flourUsed',
             'bakerySales',
             'bakerySalesCash',
-            'expensesTotal'
+            'expensesTotal',
+            'recentStockAdditions',
+            'showStockModal'
         ));
     }
 }

@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Models\User; // for chefs
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use App\Models\StockHistory;
+
 
 class ManagerIngredientController extends Controller
 {
@@ -45,10 +47,24 @@ class ManagerIngredientController extends Controller
 ]);
 
 
-        Ingredient::create($request->all());
+        $ingredient = Ingredient::create($request->all());
+
+// Record stock addition if initial stock > 0
+if ($request->stock > 0) {
+    StockHistory::create([
+        'ingredient_id' => $ingredient->id,
+        'chef_id'       => $ingredient->chef_id,
+        'quantity_added'=> $request->stock,
+        'added_by'      => auth()->id(),
+    ]);
+
+    // Reset modal flag for admin
+    session()->forget('seen_stock_modal');
+}
+
 
         return redirect()->route('manager.ingredients.index')
-            ->with('success', 'Ingredient added successfully.');
+            ->with('success', 'Ingredient added successfully, Notification Sent to Admin.');
     }
 
     public function show(Ingredient $ingredient)
@@ -85,7 +101,21 @@ class ManagerIngredientController extends Controller
             'chef_id'   => 'nullable|exists:users,id',
         ]);
 
+       $oldStock = $ingredient->stock;
         $ingredient->update($validated);
+
+        $addedStock = $ingredient->stock - $oldStock;
+        if ($addedStock > 0) {
+            StockHistory::create([
+                'ingredient_id' => $ingredient->id,
+                'chef_id'       => $ingredient->chef_id,
+                'quantity_added'=> $addedStock,
+                'added_by'      => auth()->id(),
+            ]);
+
+            // Reset modal flag for admin
+            session()->forget('seen_stock_modal');
+        }
 
         return redirect()->route('manager.ingredients.index')
             ->with('success', 'Ingredient updated successfully.');
