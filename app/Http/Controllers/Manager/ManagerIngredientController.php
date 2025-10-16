@@ -55,6 +55,7 @@ if ($request->stock > 0) {
         'ingredient_id' => $ingredient->id,
         'chef_id'       => $ingredient->chef_id,
         'quantity_added'=> $request->stock,
+        'quantity_changed'=> $request->stock,
         'added_by'      => auth()->id(),
     ]);
 
@@ -110,6 +111,7 @@ if ($request->stock > 0) {
                 'ingredient_id' => $ingredient->id,
                 'chef_id'       => $ingredient->chef_id,
                 'quantity_added'=> $addedStock,
+                'quantity_changed'=> $addedStock,
                 'added_by'      => auth()->id(),
             ]);
 

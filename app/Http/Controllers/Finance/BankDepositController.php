@@ -32,9 +32,15 @@ class BankDepositController extends Controller
             'user_id'      => 'required|exists:users,id',
             'amount'       => 'required|numeric|min:0',
             'deposit_date' => 'required|date',
+            'receipt'      => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048', 
         ]);
 
         $validated['recorded_by'] = Auth::id();
+
+         // Handle file upload
+        if ($request->hasFile('receipt')) {
+        $validated['receipt'] = $request->file('receipt')->store('bank_receipts', 'public');
+    }
 
         BankDeposit::create($validated);
 

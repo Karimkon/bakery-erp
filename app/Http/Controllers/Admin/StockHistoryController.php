@@ -56,6 +56,11 @@ class StockHistoryController extends Controller
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
+        // Additional filter for transaction type (apply before pagination)
+        if ($request->transaction_type) {
+            $query->where('transaction_type', $request->transaction_type);
+        }
+
         $history = $query->latest()->paginate(20);
 
         // Get filter options
@@ -97,6 +102,45 @@ class StockHistoryController extends Controller
             'monthCount'
         ));
     }
+
+  public function show($id)
+{
+    try {
+        \Log::info("Fetching stock history for ID: " . $id);
+        
+        $history = StockHistory::with(['ingredient', 'chef', 'addedBy'])->find($id);
+        
+        if (!$history) {
+            \Log::warning("Stock history not found for ID: " . $id);
+            return response()->json(['error' => 'Transaction not found'], 404);
+        }
+
+        \Log::info("Found stock history: " . $history->id);
+        
+        return response()->json([
+            'id' => $history->id,
+            'ingredient' => [
+                'name' => $history->ingredient->name ?? 'N/A'
+            ],
+            'chef' => $history->chef ? [
+                'name' => $history->chef->name
+            ] : null,
+            'transaction_type' => $history->transaction_type,
+            'quantity_before' => $history->quantity_before,
+            'quantity_changed' => $history->quantity_changed,
+            'quantity_after' => $history->quantity_after,
+            'added_by' => $history->addedBy ? [
+                'name' => $history->addedBy->name
+            ] : null,
+            'created_at' => $history->created_at->toDateTimeString(),
+            'notes' => $history->notes,
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error("Error fetching stock history: " . $e->getMessage());
+        return response()->json(['error' => 'Server error: ' . $e->getMessage()], 500);
+    }
+}
 
     public function getNewStockNotifications()
     {

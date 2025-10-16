@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Sale; 
 use App\Models\Expense;
 use App\Models\StockHistory;
+use App\Models\BankDeposit;
+
 
 
 
@@ -114,6 +116,10 @@ class DashboardController extends Controller
             session()->put('seen_stock_modal', true);
         }
 
+        $bankedTotal = BankDeposit::whereDate('deposit_date', '>=', $from->toDateString())
+        ->whereDate('deposit_date', '<=', $to->toDateString())
+        ->sum('amount');
+
 
         // Chart: last 7 days production & dispatch values (makes a continuous date series)
         $chartDays = 7;
@@ -181,7 +187,8 @@ class DashboardController extends Controller
             'bakerySalesCash',
             'expensesTotal',
             'recentStockAdditions',
-            'showStockModal'
+            'showStockModal',
+            'bankedTotal'
         ));
     }
 }

@@ -11,8 +11,9 @@ class BankDeposit extends Model
 
     protected $fillable = [
         'user_id',
-        'amount',
+        'amount',   
         'deposit_date',
+        'receipt',
         'recorded_by'
     ];
 

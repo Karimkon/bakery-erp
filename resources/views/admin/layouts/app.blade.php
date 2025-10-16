@@ -306,6 +306,14 @@ body {
                         <a href="{{ route('admin.ingredients.index') }}" class="{{ request()->routeIs('admin.ingredients.*') ? 'active' : '' }}">
                             <i class="bi bi-box"></i> Ingredient Stock
                         </a>
+
+                        <a href="{{ route('admin.ingredients.overview') }}" class="nav-link {{ request()->routeIs('admin.ingredients.overview') ? 'active' : '' }}">
+                            <i class="bi bi-bar-chart"></i> Ingredients Overview
+                        </a>
+
+                        <a href="{{ route('admin.ingredients.stock_history') }}" class="nav-link {{ request()->routeIs('admin.ingredients.stock_history') ? 'active' : '' }}">
+                            <i class="bi bi-clock-history"></i> Stock History
+                        </a>
                     </div>
                 </div>
             </div>
@@ -377,8 +385,12 @@ body {
                 <div id="bankingCollapse" class="accordion-collapse collapse {{ request()->is('admin/bankings*') ? 'show' : '' }}">
                     <div class="accordion-body">
                         <a href="{{ route('admin.bankings.index') }}" class="{{ request()->routeIs('admin.bankings.*') ? 'active' : '' }}">
-                            <i class="bi bi-cash-stack"></i> All Bankings
-                        </a>    
+                            <i class="bi bi-cash-stack"></i> Bakery Bankings
+                        </a>  
+                        
+                        <a href="{{ route('admin.deposits.index') }}" class="{{ request()->routeIs('admin.deposits.*') ? 'active' : '' }}">
+                            <i class="bi bi-cash-stack"></i> Driver Bankings
+                        </a>  
                     </div>
                 </div>
             </div>

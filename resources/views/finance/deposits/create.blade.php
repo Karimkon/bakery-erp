@@ -1,10 +1,10 @@
 @extends('finance.layouts.app')
-@section('title','Record Bank Deposit')
+@section('title','Driver Record Bank Deposit')
 
 @section('content')
 <h4 class="mb-3"><i class="bi bi-plus-circle me-2"></i> New Deposit</h4>
 
-<form method="POST" action="{{ route('finance.deposits.store') }}">
+<form method="POST" action="{{ route('finance.deposits.store') }}" enctype="multipart/form-data">
     @csrf
 
     <div class="mb-3">
@@ -26,6 +26,12 @@
         <label class="form-label">Deposit Date</label>
         <input type="date" name="deposit_date" class="form-control" required>
     </div>
+
+    <div class="mb-3">
+        <label for="receipt" class="form-label">Receipt (optional)</label>
+        <input type="file" name="receipt" id="receipt" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+    </div>
+
 
     <button class="btn btn-success">Save Deposit</button>
     <a href="{{ route('finance.deposits.index') }}" class="btn btn-secondary">Cancel</a>

@@ -211,14 +211,20 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
         ->name('expenses.export');
 
 
-        Route::get('ingredients-overview', [App\Http\Controllers\Admin\IngredientController::class, 'overview'])
-    ->name('ingredients.overview');
-
+    Route::get('ingredients-overview', [App\Http\Controllers\Admin\IngredientController::class, 'overview'])
+        ->name('ingredients.overview');
 
     Route::get('ingredients/stock_history', [App\Http\Controllers\Admin\StockHistoryController::class, 'index'])
-    ->name('ingredients.stock_history');
+        ->name('ingredients.stock_history');
+
+    Route::get('ingredients/stock_history/{id}', [App\Http\Controllers\Admin\StockHistoryController::class, 'show'])
+        ->name('ingredients.stock_history.show');
+
 
      Route::resource('ingredients', \App\Http\Controllers\Admin\IngredientController::class);
+
+     Route::get('/deposits', [\App\Http\Controllers\Admin\AdminDepositController::class, 'index'])->name('deposits.index');
+
     
 });
 

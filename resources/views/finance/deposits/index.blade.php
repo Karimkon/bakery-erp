@@ -16,6 +16,7 @@
 <table class="table table-bordered table-hover">
     <thead class="table-light">
         <tr>
+            <th>Reciept</th>
             <th>Date</th>
             <th>Depositor</th>
             <th class="text-end">Amount (UGX)</th>
@@ -26,8 +27,19 @@
     <tbody>
         @forelse($deposits as $deposit)
         <tr>
+            <td>
+                @if($deposit->receipt)
+                    <a href="{{ asset('storage/' . $deposit->receipt) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        View
+                    </a>
+                @else
+                    -
+                @endif
+            </td>
+
             <td>{{ $deposit->deposit_date }}</td>
-            <td>{{ $deposit->depositor->name }}</td>
+            <td>{{ $deposit->depositor?->name ?? '-' }}</td>
+
             <td class="text-end">{{ number_format($deposit->amount) }}</td>
             <td>{{ $deposit->recorder->name }}</td>
             <td>

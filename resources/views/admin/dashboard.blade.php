@@ -105,6 +105,34 @@
             </div>
         </div>
 
+
+        <div class="col-6 col-md-3">
+    <div class="card h-100 shadow-sm p-3 position-relative overflow-hidden" style="transition: transform 0.3s; cursor: pointer;"
+         onmouseover="this.style.transform='translateY(-5px)'" 
+         onmouseout="this.style.transform='translateY(0)'">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Bank Deposits</small>
+                <h4 class="mb-0 text-success">{{ number_format($bankedTotal ?? 0, 0) }} UGX</h4>
+            </div>
+            <div class="text-center">
+                <div class="icon-circle bg-success text-white mb-2" 
+                     style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition: transform 0.3s;"
+                     onmouseover="this.style.transform='scale(1.2) rotate(5deg)'" 
+                     onmouseout="this.style.transform='scale(1) rotate(0deg)'">
+                    <i class="bi bi-bank2 fs-4"></i>
+                </div>
+                <a href="{{ route('admin.deposits.index') }}" class="btn btn-sm btn-outline-success animate-pulse" 
+                   style="font-size:0.7rem; padding:0.25rem 0.5rem; transition: transform 0.2s;"
+                   onmouseover="this.style.transform='translateY(-2px)'" 
+                   onmouseout="this.style.transform='translateY(0)'">
+                    <i class="bi bi-graph-up me-1"></i> View
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
        
 <div class="col-6 col-md-3">
     <div class="card h-100 shadow-sm p-3 position-relative overflow-hidden" style="transition: transform 0.3s; cursor: pointer;"

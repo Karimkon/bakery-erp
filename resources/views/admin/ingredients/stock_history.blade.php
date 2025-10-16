@@ -92,7 +92,7 @@
     <!-- Quick Filter Buttons -->
     <div class="card mb-3 border-0 shadow-sm">
         <div class="card-body">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <span class="text-muted small me-2">Quick Filters:</span>
                 <a href="{{ route('admin.ingredients.stock_history', ['period' => 'today']) }}" 
                    class="btn btn-sm {{ request('period') == 'today' ? 'btn-primary' : 'btn-outline-primary' }}">
@@ -113,6 +113,23 @@
                 <a href="{{ route('admin.ingredients.stock_history') }}" 
                    class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-arrow-clockwise"></i> Clear All
+                </a>
+            </div>
+
+            <!-- Transaction Type Filter -->
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small me-2">Transaction Type:</span>
+                <a href="{{ route('admin.ingredients.stock_history', array_merge(request()->except('transaction_type'), ['transaction_type' => 'addition'])) }}" 
+                   class="btn btn-sm {{ request('transaction_type') == 'addition' ? 'btn-success' : 'btn-outline-success' }}">
+                    <i class="bi bi-plus-circle"></i> Additions
+                </a>
+                <a href="{{ route('admin.ingredients.stock_history', array_merge(request()->except('transaction_type'), ['transaction_type' => 'usage'])) }}" 
+                   class="btn btn-sm {{ request('transaction_type') == 'usage' ? 'btn-danger' : 'btn-outline-danger' }}">
+                    <i class="bi bi-dash-circle"></i> Usage
+                </a>
+                <a href="{{ route('admin.ingredients.stock_history', array_merge(request()->except('transaction_type'), ['transaction_type' => 'adjustment'])) }}" 
+                   class="btn btn-sm {{ request('transaction_type') == 'adjustment' ? 'btn-warning' : 'btn-outline-warning' }}">
+                    <i class="bi bi-arrow-left-right"></i> Adjustments
                 </a>
             </div>
         </div>
@@ -245,7 +262,7 @@
                     </thead>
                     <tbody>
                         @foreach($history as $index => $item)
-                        <tr>
+                        <tr class="transaction-row" data-url="{{ route('admin.ingredients.stock_history.show', $item->id) }}" style="cursor: pointer;" role="button" tabindex="0">
                             <td class="text-center text-muted small">{{ $history->firstItem() + $index }}</td>
                             <td>
                                 <span class="fw-semibold">{{ $item->ingredient->name ?? 'N/A' }}</span>
@@ -256,9 +273,19 @@
                                 </span>
                             </td>
                             <td class="text-end">
-                                <span class="badge bg-success-subtle text-success fw-semibold px-3 py-2">
-                                    +{{ number_format($item->quantity_added) }}
-                                </span>
+                                @if($item->transaction_type == 'usage')
+                                    <span class="badge bg-danger-subtle text-danger fw-semibold px-3 py-2">
+                                        -{{ number_format($item->quantity_changed, 2) }}
+                                    </span>
+                                @elseif($item->transaction_type == 'adjustment')
+                                    <span class="badge bg-warning-subtle text-warning fw-semibold px-3 py-2">
+                                        ±{{ number_format($item->quantity_changed, 2) }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-success-subtle text-success fw-semibold px-3 py-2">
+                                        +{{ number_format($item->quantity_changed, 2) }}
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 <small class="text-muted">
@@ -319,6 +346,23 @@
             @endif
         </div>
     </div>
+
+<!-- Transaction Details Modal -->
+<div class="modal fade" id="transactionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-semibold"><i class="bi bi-info-circle"></i> Stock Transaction Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="transactionDetails" class="p-2">
+          <p class="text-muted text-center">Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <style>
@@ -337,5 +381,92 @@
 .form-select-sm, .form-control-sm {
     border-radius: 0.375rem;
 }
+
+.transaction-row:hover {
+    background-color: rgba(0, 123, 255, 0.1) !important;
+}
 </style>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Event delegation: capture clicks on any transaction row
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('.transaction-row');
+        if (!row) return;
+
+        const url = row.dataset.url;
+        const modalEl = document.getElementById('transactionModal');
+        const modal = new bootstrap.Modal(modalEl);
+        const container = document.getElementById('transactionDetails');
+
+        container.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted">Loading transaction details...</p>
+            </div>
+        `;
+
+        modal.show();
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken || ''
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            container.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                        <tr><th class="w-25">Ingredient</th><td>${data.ingredient?.name || 'N/A'}</td></tr>
+                        <tr><th>Chef</th><td>${data.chef?.name || '—'}</td></tr>
+                        <tr><th>Transaction Type</th><td>
+                            <span class="badge ${getTransactionBadgeClass(data.transaction_type)}">
+                                ${data.transaction_type}
+                            </span>
+                        </td></tr>
+                        <tr><th>Quantity Before</th><td>${formatQuantity(data.quantity_before)}</td></tr>
+                        <tr><th>Quantity Changed</th><td>${formatQuantity(data.quantity_changed)}</td></tr>
+                        <tr><th>Quantity After</th><td>${formatQuantity(data.quantity_after)}</td></tr>
+                        <tr><th>Added By</th><td>${data.added_by?.name || 'System'}</td></tr>
+                        <tr><th>Date & Time</th><td>${new Date(data.created_at).toLocaleString()}</td></tr>
+                        <tr><th>Notes</th><td>${data.notes || '—'}</td></tr>
+                    </table>
+                </div>
+            `;
+        })
+        .catch(error => {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-triangle"></i> Error Loading Details</h6>
+                    <p class="mb-1">${error.message}</p>
+                    <small class="text-muted">Check the browser console for more details.</small>
+                </div>
+            `;
+        });
+    });
+
+    function getTransactionBadgeClass(type) {
+        const classes = { 'addition': 'bg-success', 'usage': 'bg-danger', 'adjustment': 'bg-warning' };
+        return classes[type] || 'bg-secondary';
+    }
+
+    function formatQuantity(quantity) {
+        if (quantity === null || quantity === undefined) return '—';
+        return Number(quantity).toFixed(2);
+    }
+});
+</script>
+@endpush
 @endsection
