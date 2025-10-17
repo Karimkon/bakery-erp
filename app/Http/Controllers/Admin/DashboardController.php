@@ -15,7 +15,7 @@ use App\Models\Sale;
 use App\Models\Expense;
 use App\Models\StockHistory;
 use App\Models\BankDeposit;
-
+use App\Models\Damage;
 
 
 
@@ -29,166 +29,190 @@ class DashboardController extends Controller
      * - prepares last-7-days chart (production vs dispatch)
      */
     public function index(Request $request)
-    {
-        $filter = $request->query('filter', 'today'); // 'today'|'week'|'month'
+{
+    $filter = $request->query('filter', 'today'); // 'today'|'week'|'month'
+    $today = Carbon::today();
+    $now = Carbon::now();
 
-        $today = Carbon::today();
-        $now = Carbon::now();
+    switch ($filter) {
+        case 'week':
+            $from = Carbon::now()->startOfWeek();
+            $title = 'This Week';
+            break;
+        case 'month':
+            $from = Carbon::now()->startOfMonth();
+            $title = 'This Month';
+            break;
+        default:
+            $from = $today->startOfDay();
+            $title = 'Today';
+    }
 
-        switch ($filter) {
-            case 'week':
-                $from = Carbon::now()->startOfWeek();
-                $title = 'This Week';
-                break;
-            case 'month':
-                $from = Carbon::now()->startOfMonth();
-                $title = 'This Month';
-                break;
-            default:
-                $from = $today->startOfDay();
-                $title = 'Today';
-        }
+    $to = $now->endOfDay();
 
-        $to = $now->endOfDay();
+    // Summary counts
+    $totalUsers = User::count();
+    $totalProductions = Production::count();
+    $totalDispatches = Dispatch::count();
+    $todayProductions = Production::whereDate('production_date', $today)->count();
 
-        // Summary counts
-        $totalUsers = User::count();
-        $totalProductions = Production::count();
-        $totalDispatches = Dispatch::count();
+    // Production & Dispatch values
+    $productionValue = (float) Production::whereDate('production_date', '>=', $from->toDateString())
+        ->whereDate('production_date', '<=', $to->toDateString())
+        ->sum('total_value');
 
-        // Quick today stat (kept for legacy)
-        $todayProductions = Production::whereDate('production_date', $today)->count();
+    $dispatchValue = (float) Dispatch::whereDate('dispatch_date', '>=', $from->toDateString())
+        ->whereDate('dispatch_date', '<=', $to->toDateString())
+        ->sum('total_sales_value');
 
-        // Values for selected filter range
-        // Note: production.production_date and dispatch.dispatch_date assumed to be date or datetime
-        $productionValue = (float) Production::whereDate('production_date', '>=', $from->toDateString())
-            ->whereDate('production_date', '<=', $to->toDateString())
-            ->sum('total_value');
+    // --- Gross Profit Calculation ---
+    $productPrices = config('bakery_products');
+    $grossProfit = 0;
 
-        $dispatchValue = (float) Dispatch::whereDate('dispatch_date', '>=', $from->toDateString())
-            ->whereDate('dispatch_date', '<=', $to->toDateString())
-            ->sum('total_sales_value');
+    // 1. Dispatch items revenue
+    $dispatchItems = DB::table('dispatch_items')
+        ->join('dispatches', 'dispatch_items.dispatch_id', '=', 'dispatches.id')
+        ->whereDate('dispatches.dispatch_date', '>=', $from->toDateString())
+        ->whereDate('dispatches.dispatch_date', '<=', $to->toDateString())
+        ->select('dispatch_items.product', DB::raw('SUM(dispatch_items.sold_qty) as total_sold'))
+        ->groupBy('dispatch_items.product')
+        ->get();
 
-        $combinedValue = $productionValue + $dispatchValue;
+    foreach ($dispatchItems as $item) {
+        $price = $productPrices[$item->product] ?? 0;
+        $grossProfit += $price * $item->total_sold;
+    }
 
-        // Extra useful metrics
-        $dispatchItemsCount = (int) Dispatch::whereDate('dispatch_date', '>=', $from->toDateString())
-            ->whereDate('dispatch_date', '<=', $to->toDateString())
-            ->sum('total_items_sold');
+    // 2. Include approved sold damages
+    $damageRevenue = Damage::where('status', 'approved')
+        ->whereNotNull('sold_quantity')
+        ->whereBetween('updated_at', [$from->startOfDay(), $to->endOfDay()])
+        ->sum(DB::raw('sold_quantity * approved_price'));
 
-        // Recent lists to display
-        $recentDispatches = Dispatch::with('driver')
-            ->orderBy('dispatch_date', 'desc')
-            ->orderBy('dispatch_no', 'desc')
-            ->limit(10)
-            ->get();
+    $grossProfit += $damageRevenue;
 
-        $recentProductions = Production::with('user')
-            ->orderBy('production_date', 'desc')
-            ->limit(10)
-            ->get();
+    // 3. Include Bakery Sales
+    $bakerySales = Sale::whereDate('created_at', '>=', $from->toDateString())
+        ->whereDate('created_at', '<=', $to->toDateString())
+        ->sum('total_price');
 
-            // Total Bakery Shop Sales (filtered by date range)
-        $bakerySales = Sale::whereDate('created_at', '>=', $from->toDateString())
-            ->whereDate('created_at', '<=', $to->toDateString())
-            ->sum('total_price');
+    $grossProfit += $bakerySales;
 
-        // Optional: split by payment method
-        $bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
-            ->whereDate('created_at', '<=', $to->toDateString())
-            ->where('payment_method', 'cash')
-            ->sum('total_price');
+    // 4. Expenses
+    $expensesTotal = Expense::whereDate('expense_date', '>=', $from->toDateString())
+        ->whereDate('expense_date', '<=', $to->toDateString())
+        ->sum('amount');
 
-        $expensesTotal = Expense::whereDate('expense_date', '>=', $from->toDateString())
-            ->whereDate('expense_date', '<=', $to->toDateString())
-            ->sum('amount');
+    // Net Profit
+    $netProfit = $grossProfit - $expensesTotal;
 
-        $recentStockAdditions = StockHistory::with(['ingredient', 'chef', 'addedBy'])
-            ->orderBy('created_at', 'desc')
-            ->limit(5) // last 5 additions
-            ->get();
+    // Dispatch items count
+    $dispatchItemsCount = (int) Dispatch::whereDate('dispatch_date', '>=', $from->toDateString())
+        ->whereDate('dispatch_date', '<=', $to->toDateString())
+        ->sum('total_items_sold');
 
-        // Determine if modal should be shown (only if there are recent additions)
-        $showStockModal = !$recentStockAdditions->isEmpty() && !session()->get('seen_stock_modal', false);
+    // Recent lists
+    $recentDispatches = Dispatch::with('driver')
+        ->orderBy('dispatch_date', 'desc')
+        ->orderBy('dispatch_no', 'desc')
+        ->limit(10)
+        ->get();
 
-        // Mark it as seen in session if we are showing
-        if ($showStockModal) {
-            session()->put('seen_stock_modal', true);
-        }
+    $recentProductions = Production::with('user')
+        ->orderBy('production_date', 'desc')
+        ->limit(10)
+        ->get();
 
-        $bankedTotal = BankDeposit::whereDate('deposit_date', '>=', $from->toDateString())
+    // Bakery Sales (split by payment method)
+    $bakerySalesCash = Sale::whereDate('created_at', '>=', $from->toDateString())
+        ->whereDate('created_at', '<=', $to->toDateString())
+        ->where('payment_method', 'cash')
+        ->sum('total_price');
+
+    // Recent Stock Additions
+   $recentStockAdditions = StockHistory::with(['ingredient', 'chef', 'addedBy'])
+    ->whereIn('transaction_type', ['addition', 'usage'])
+    ->orderBy('created_at', 'desc')
+    ->limit(5)
+    ->get();
+
+
+    $showStockModal = !$recentStockAdditions->isEmpty() && !session()->get('seen_stock_modal', false);
+    if ($showStockModal) {
+        session()->put('seen_stock_modal', true);
+    }
+
+    // Bank deposits
+    $bankedTotal = BankDeposit::whereDate('deposit_date', '>=', $from->toDateString())
         ->whereDate('deposit_date', '<=', $to->toDateString())
         ->sum('amount');
 
+    // Charts: last 7 days
+    $chartDays = 7;
+    $chartFrom = Carbon::now()->subDays($chartDays - 1)->startOfDay();
+    $chartTo = Carbon::now()->endOfDay();
 
-        // Chart: last 7 days production & dispatch values (makes a continuous date series)
-        $chartDays = 7;
-        $chartFrom = Carbon::now()->subDays($chartDays - 1)->startOfDay();
-        $chartTo = Carbon::now()->endOfDay();
+    $prodPerDay = Production::selectRaw('DATE(production_date) as day, SUM(total_value) as value')
+        ->whereDate('production_date', '>=', $chartFrom->toDateString())
+        ->whereDate('production_date', '<=', $chartTo->toDateString())
+        ->groupBy('day')
+        ->orderBy('day', 'asc')
+        ->pluck('value', 'day')
+        ->toArray();
 
-        // Production per day
-        $prodPerDay = Production::selectRaw('DATE(production_date) as day, SUM(total_value) as value')
-            ->whereDate('production_date', '>=', $chartFrom->toDateString())
-            ->whereDate('production_date', '<=', $chartTo->toDateString())
-            ->groupBy('day')
-            ->orderBy('day', 'asc')
-            ->pluck('value', 'day')
-            ->toArray();
+    $dispPerDay = Dispatch::selectRaw('DATE(dispatch_date) as day, SUM(total_sales_value) as value')
+        ->whereDate('dispatch_date', '>=', $chartFrom->toDateString())
+        ->whereDate('dispatch_date', '<=', $chartTo->toDateString())
+        ->groupBy('day')
+        ->orderBy('day', 'asc')
+        ->pluck('value', 'day')
+        ->toArray();
 
-        // Dispatch per day
-        $dispPerDay = Dispatch::selectRaw('DATE(dispatch_date) as day, SUM(total_sales_value) as value')
-            ->whereDate('dispatch_date', '>=', $chartFrom->toDateString())
-            ->whereDate('dispatch_date', '<=', $chartTo->toDateString())
-            ->groupBy('day')
-            ->orderBy('day', 'asc')
-            ->pluck('value', 'day')
-            ->toArray();
-
-        // Build labels and series (ensure zeros for missing days)
-        $labels = [];
-        $prodSeries = [];
-        $dispSeries = [];
-        for ($i = 0; $i < $chartDays; $i++) {
-            $d = Carbon::now()->subDays($chartDays - 1 - $i)->format('Y-m-d');
-            $labels[] = Carbon::parse($d)->format('M d');
-            $prodSeries[] = isset($prodPerDay[$d]) ? (float)$prodPerDay[$d] : 0;
-            $dispSeries[] = isset($dispPerDay[$d]) ? (float)$dispPerDay[$d] : 0;
-        }
-
-        // Bakery stocks for modal/alert
-        $bakeryStocks = BakeryStock::orderBy('product')->get();
-
-        // Assuming each flour_bag is 50kg — change as needed
-        $flourUsed = (float) Production::whereDate('production_date', '>=', $from->toDateString())
-            ->whereDate('production_date', '<=', $to->toDateString())
-            ->sum('flour_bags') * 50;
-
-
-
-        return view('admin.dashboard', compact(
-            'filter',
-            'title',
-            'totalUsers',
-            'totalProductions',
-            'totalDispatches',
-            'todayProductions',
-            'productionValue',
-            'dispatchValue',
-            'combinedValue',
-            'dispatchItemsCount',
-            'recentDispatches',
-            'recentProductions',
-            'labels',
-            'prodSeries',
-            'dispSeries',
-            'bakeryStocks',
-            'flourUsed',
-            'bakerySales',
-            'bakerySalesCash',
-            'expensesTotal',
-            'recentStockAdditions',
-            'showStockModal',
-            'bankedTotal'
-        ));
+    $labels = [];
+    $prodSeries = [];
+    $dispSeries = [];
+    for ($i = 0; $i < $chartDays; $i++) {
+        $d = Carbon::now()->subDays($chartDays - 1 - $i)->format('Y-m-d');
+        $labels[] = Carbon::parse($d)->format('M d');
+        $prodSeries[] = $prodPerDay[$d] ?? 0;
+        $dispSeries[] = $dispPerDay[$d] ?? 0;
     }
+
+    // Flour used
+    $flourUsed = (float) Production::whereDate('production_date', '>=', $from->toDateString())
+        ->whereDate('production_date', '<=', $to->toDateString())
+        ->sum('flour_bags') * 50;
+
+    // Bakery stocks
+    $bakeryStocks = BakeryStock::orderBy('product')->get();
+
+    return view('admin.dashboard', compact(
+        'filter',
+        'title',
+        'totalUsers',
+        'totalProductions',
+        'totalDispatches',
+        'todayProductions',
+        'productionValue',
+        'dispatchValue',
+        'dispatchItemsCount',
+        'recentDispatches',
+        'recentProductions',
+        'labels',
+        'prodSeries',
+        'dispSeries',
+        'bakeryStocks',
+        'flourUsed',
+        'bakerySales',
+        'bakerySalesCash',
+        'expensesTotal',
+        'recentStockAdditions',
+        'showStockModal',
+        'bankedTotal',
+        'grossProfit',
+        'netProfit',
+        'damageRevenue'
+    ));
+}
+
 }

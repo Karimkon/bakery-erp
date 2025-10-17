@@ -168,9 +168,13 @@ body {
         </a>
 
 
-        <a href="{{ route('manager.production.index') }}" class="{{ request()->routeIs('manager.production.*') ? 'active' : '' }}">
-            <i class="bi bi-bar-chart-line"></i> Production Reports
-        </a>
+  
+            <a href="{{ route('manager.production.index') }}" 
+               class="{{ request()->routeIs('manager.production.*') ? 'active' : '' }}">
+                <i class="bi bi-clipboard-data"></i> Production Reports
+            </a>
+            
+            
 
         <!-- Removed any route that does not exist to avoid RouteNotFoundException -->
     </div>

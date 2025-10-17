@@ -395,11 +395,17 @@ body {
                 </div>
             </div>
 
+            <a href="{{ route('admin.reports.productprofit') }}" 
+               class="{{ request()->routeIs('manager.reports.productprofit') ? 'active' : '' }}">
+                <i class="bi bi-graph-up-arrow"></i> Product Profit Analysis
+            </a>
 
             <a href="{{ route('admin.reports.index') }}" 
                 class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-bar-graph"></i> Reports
             </a>
+
+
 
             <a href="{{ route('admin.expenses.dashboard') }}" 
                 class="{{ request()->routeIs('admin.expenses.*') ? 'active' : '' }}">

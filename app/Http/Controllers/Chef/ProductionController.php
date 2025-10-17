@@ -8,6 +8,8 @@ use App\Models\Ingredient;
 use App\Models\StockHistory; // ✅ Add this import
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
 
 class ProductionController extends Controller
 {
@@ -30,7 +32,8 @@ class ProductionController extends Controller
     }
 
     public function store(Request $request)
-    {
+{
+    try {
         $request->validate([
             'production_date' => 'required|date',
             'flour_kgs'       => 'required|numeric|min:0',
@@ -80,24 +83,39 @@ class ProductionController extends Controller
 
         // Save Production and Deduct Ingredients
         \DB::transaction(function () use ($request, $outputs, $totalValue, $hasVariance, $notes, $flourKgs) {
+            // ✅ CREATE PRODUCTION WITH ALL PRODUCTS
             $production = \App\Models\Production::create([
-                'user_id'         => \Auth::id(),
-                'production_date' => $request->production_date,
-                'flour_bags'      => $flourKgs / 50,
-                'total_value'     => $totalValue,
-                'has_variance'    => $hasVariance ? 1 : 0,
-                'variance_notes'  => trim($notes) ?: null,
-                'buns'            => (int)($outputs['buns'] ?? 0),
-                'small_breads'    => (int)($outputs['small_breads'] ?? 0),
-                'big_breads'      => (int)($outputs['big_breads'] ?? 0),
-                'donuts'          => (int)($outputs['donuts'] ?? 0),
-                'half_cakes'      => (int)($outputs['half_cakes'] ?? 0),
-                'block_cakes'     => (int)($outputs['block_cakes'] ?? 0),
-                'slab_cakes'      => (int)($outputs['slab_cakes'] ?? 0),
-                'birthday_cakes'  => (int)($outputs['birthday_cakes'] ?? 0),
+                'user_id'           => \Auth::id(),
+                'production_date'   => $request->production_date,
+                'flour_bags'        => $flourKgs / 50,
+                'total_value'       => $totalValue,
+                'has_variance'      => $hasVariance ? 1 : 0,
+                'variance_notes'    => trim($notes) ?: null,
+                
+                // Original 8 products
+                'buns'              => (int)($outputs['buns'] ?? 0),
+                'small_breads'      => (int)($outputs['small_breads'] ?? 0),
+                'big_breads'        => (int)($outputs['big_breads'] ?? 0),
+                'donuts'            => (int)($outputs['donuts'] ?? 0),
+                'half_cakes'        => (int)($outputs['half_cakes'] ?? 0),
+                'block_cakes'       => (int)($outputs['block_cakes'] ?? 0),
+                'slab_cakes'        => (int)($outputs['slab_cakes'] ?? 0),
+                
+                // ✅ NEW PRODUCTS - ADD ALL OF THEM
+                'quarter_breads'    => (int)($outputs['quarter_breads'] ?? 0),
+                'birthday_cakes30k' => (int)($outputs['birthday_cakes30k'] ?? 0),
+                'birthday_cakes50k' => (int)($outputs['birthday_cakes50k'] ?? 0),
+                'mandazis'          => (int)($outputs['mandazis'] ?? 0),
+                'musiba_tayi'       => (int)($outputs['musiba_tayi'] ?? 0),
+                'scornes'           => (int)($outputs['scornes'] ?? 0),
+                'chapatys'          => (int)($outputs['chapatys'] ?? 0),
+                'toasted_bread'     => (int)($outputs['toasted_bread'] ?? 0),
+                'spring_donuts'     => (int)($outputs['spring_donuts'] ?? 0),
+                'cream_donuts'      => (int)($outputs['cream_donuts'] ?? 0),
+                'cinnamon_rolls'    => (int)($outputs['cinnamon_rolls'] ?? 0),
             ]);
 
-            // ✅✅✅ ENHANCED: Deduct ingredient usage and track in history
+            // ✅ TRACK INGREDIENT USAGE
             $ingredientInputs = $request->input('ingredients', []);
             foreach ($ingredientInputs as $id => $qtyKg) {
                 $qtyKg = (float) $qtyKg;
@@ -111,7 +129,6 @@ class ProductionController extends Controller
 
                 $cost = $qtyKg * (float) $ingredient->unit_cost;
 
-                // Save ingredient usage record
                 $production->ingredientUsages()->create([
                     'ingredient_id' => $ingredient->id,
                     'quantity'      => $qtyKg,
@@ -119,22 +136,16 @@ class ProductionController extends Controller
                     'cost'          => $cost,
                 ]);
 
-                // ✅ TRACK STOCK BEFORE DEDUCTING
                 $stockBefore = (float) $ingredient->stock;
-                
-                // Deduct from chef's ingredient stock
                 $ingredient->decrement('stock', $qtyKg);
-                
-                // Refresh to get updated stock
                 $ingredient->refresh();
                 $stockAfter = (float) $ingredient->stock;
 
-                // ✅✅✅ RECORD IN STOCK HISTORY
-                StockHistory::create([
+                \App\Models\StockHistory::create([
                     'ingredient_id'   => $ingredient->id,
-                    'chef_id'         => $ingredient->chef_id,
+                    'chef_id' => Auth::id(),
                     'production_id'   => $production->id,
-                    'quantity_changed'=> -$qtyKg, // Negative because it's usage
+                    'quantity_changed'=> -$qtyKg,
                     'quantity_before' => $stockBefore,
                     'quantity_after'  => $stockAfter,
                     'transaction_type'=> 'usage',
@@ -143,23 +154,21 @@ class ProductionController extends Controller
                                         \Carbon\Carbon::parse($request->production_date)->format('d M Y')
                 ]);
 
-                // ✅ Reset modal flag so admin sees the notification
                 session()->forget('seen_stock_modal');
             }
 
-            // Update bakery stock per product
+            // ✅ UPDATE BAKERY STOCK FOR ALL VALID PRODUCTS
+            $validProducts = [
+                'buns', 'small_breads', 'big_breads', 'donuts',
+                'half_cakes', 'block_cakes', 'slab_cakes',
+                'quarter_breads', 'birthday_cakes30k', 'birthday_cakes50k',
+                'mandazis', 'musiba_tayi', 'scornes', 'chapatys',
+                'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls'
+            ];
+
             foreach ($outputs as $product => $qty) {
                 $qty = (int) $qty;
-
                 if ($qty <= 0) continue;
-
-                $validProducts = [
-                    'buns', 'small_breads', 'big_breads', 'donuts',
-                    'half_cakes', 'block_cakes', 'slab_cakes', 'birthday_cakes30k', 'quarter_breads', 
-                    'birthday_cakes50k', 'mandazis', 'musiba_tayi', 'scornes', 'chapatys', 
-                    'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls'
-                ];
-
                 if (!in_array($product, $validProducts)) continue;
 
                 $stock = \App\Models\BakeryStock::firstOrCreate(
@@ -167,18 +176,18 @@ class ProductionController extends Controller
                     ['quantity' => 0]
                 );
 
-                \Log::info("Updating stock for {$product}", [
-                    'previous' => $stock->quantity,
-                    'added' => $qty
-                ]);
-
                 $stock->increment('quantity', $qty);
             }
         });
 
         return redirect()->route('chef.productions.index')
-            ->with('success', 'Production recorded successfully. Ingredient usage tracked.');
+            ->with('success', 'Production recorded successfully!');
+            
+    } catch (\Exception $e) {
+        \Log::error('Production Error: ' . $e->getMessage());
+        return back()->withInput()->withErrors(['error' => $e->getMessage()]);
     }
+}
 
     public function show(Production $production)
     {

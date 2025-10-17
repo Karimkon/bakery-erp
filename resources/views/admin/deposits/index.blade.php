@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('title','Driver's Bank Deposits Section')
+@section('title','Bank Deposits')
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">

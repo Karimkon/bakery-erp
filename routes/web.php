@@ -225,6 +225,8 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
 
      Route::get('/deposits', [\App\Http\Controllers\Admin\AdminDepositController::class, 'index'])->name('deposits.index');
 
+     Route::get('reports/productprofit', [App\Http\Controllers\Admin\ProductProfitReportController::class, 'index'])
+        ->name('reports.productprofit');
     
 });
 
@@ -318,7 +320,6 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
         ->name('ingredients.byChef');
     Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
     ->name('ingredients.overview');
-
 
     });
 

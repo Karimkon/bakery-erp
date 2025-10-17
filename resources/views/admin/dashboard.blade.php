@@ -93,17 +93,44 @@
             </div>
         </div>
 
+
         <div class="col-6 col-md-3">
-            <div class="card h-100 shadow-sm p-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <small class="text-muted">{{ $title }} Total Value (Prod + Dispatch)</small>
-                        <h4 class="mb-0 text-success">{{ number_format($combinedValue, 0) }}</h4>
-                    </div>
-                    <div class="icon-circle bg-success text-white"><i class="bi bi-cash-stack"></i></div>
-                </div>
+    <div class="card shadow-sm p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Damaged Sales</small>
+                <h4 class="mb-0 text-warning">{{ number_format($damageRevenue, 0) }} UGX</h4>
             </div>
+            <div class="icon-circle bg-warning text-white"><i class="bi bi-exclamation-triangle"></i></div>
         </div>
+    </div>
+</div>
+
+<div class="col-6 col-md-3">
+    <div class="card shadow-sm p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Gross Profit</small>
+                <h4 class="mb-0 text-primary">{{ number_format($grossProfit, 0) }} UGX</h4>
+            </div>
+            <div class="icon-circle bg-primary text-white"><i class="bi bi-cash-coin"></i></div>
+        </div>
+    </div>
+</div>
+
+<div class="col-6 col-md-3">
+    <div class="card shadow-sm p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Net Profit</small>
+                <h4 class="mb-0 text-success">{{ number_format($netProfit, 0) }} UGX</h4>
+            </div>
+            <div class="icon-circle bg-success text-white"><i class="bi bi-graph-up-arrow"></i></div>
+        </div>
+    </div>
+</div>
+
+
 
 
         <div class="col-6 col-md-3">
@@ -276,7 +303,6 @@
                 <ul class="list-unstyled mb-0">
                     <li class="mb-2"><small class="text-muted">Today productions</small><div class="fw-bold">{{ number_format($todayProductions) }}</div></li>
                     <li class="mb-2"><small class="text-muted">Dispatch items (range)</small><div class="fw-bold">{{ number_format($dispatchItemsCount) }}</div></li>
-                    <li><small class="text-muted">Combined value</small><div class="fw-bold">{{ number_format($combinedValue,0) }}</div></li>
                 </ul>
             </div>
         </div>
@@ -300,6 +326,7 @@
             <tr>
               <th>Ingredient</th>
               <th>Quantity</th>
+              <th>Type</th>
               <th>Chef</th>
               <th>Added By</th>
               <th>Date</th>
@@ -310,6 +337,11 @@
             <tr>
               <td>{{ $stock->ingredient->name ?? '-' }}</td>
               <td>{{ number_format($stock->quantity_added) }}</td>
+                <td>
+                <span class="badge bg-{{ $stock->transaction_type == 'addition' ? 'success' : 'warning' }}">
+                    {{ ucfirst($stock->transaction_type) }}
+                </span>
+                </td>
               <td>{{ $stock->chef->name ?? '-' }}</td>
               <td>{{ $stock->addedBy->name ?? '-' }}</td>
               <td>{{ $stock->created_at->format('d M Y H:i') }}</td>
