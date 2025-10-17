@@ -120,7 +120,8 @@ class StockHistoryController extends Controller
         return response()->json([
             'id' => $history->id,
             'ingredient' => [
-                'name' => $history->ingredient->name ?? 'N/A'
+                'name' => $history->ingredient->name ?? 'N/A',
+                'unit' => $history->ingredient->unit ?? '', // ✅ Added this line
             ],
             'chef' => $history->chef ? [
                 'name' => $history->chef->name
@@ -141,6 +142,7 @@ class StockHistoryController extends Controller
         return response()->json(['error' => 'Server error: ' . $e->getMessage()], 500);
     }
 }
+
 
     public function getNewStockNotifications()
     {

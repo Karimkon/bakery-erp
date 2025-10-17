@@ -227,6 +227,13 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
 
      Route::get('reports/productprofit', [App\Http\Controllers\Admin\ProductProfitReportController::class, 'index'])
         ->name('reports.productprofit');
+
+    Route::get('staff-breakfast', [\App\Http\Controllers\Admin\AdminStaffBreakfastController::class, 'index'])
+        ->name('staff_breakfast.index');
+    Route::post('staff-breakfast/{breakfast}/approve', [\App\Http\Controllers\Admin\AdminStaffBreakfastController::class, 'approve'])
+        ->name('staff_breakfast.approve');
+    Route::post('staff-breakfast/{breakfast}/reject', [\App\Http\Controllers\Admin\AdminStaffBreakfastController::class, 'reject'])
+        ->name('staff_breakfast.reject');
     
 });
 
@@ -320,6 +327,13 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
         ->name('ingredients.byChef');
     Route::get('ingredients-overview', [App\Http\Controllers\Manager\ManagerIngredientController::class, 'overview'])
     ->name('ingredients.overview');
+
+    Route::get('staff-breakfast', [\App\Http\Controllers\Manager\ManagerStaffBreakfastController::class, 'index'])
+        ->name('staff_breakfast.index');
+    Route::get('staff-breakfast/create', [\App\Http\Controllers\Manager\ManagerStaffBreakfastController::class, 'create'])
+        ->name('staff_breakfast.create');
+    Route::post('staff-breakfast', [\App\Http\Controllers\Manager\ManagerStaffBreakfastController::class, 'store'])
+        ->name('staff_breakfast.store');
 
     });
 

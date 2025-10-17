@@ -160,6 +160,21 @@
     </div>
 </div>
 
+<div class="col-6 col-md-3">
+    <div class="card h-100 shadow-sm p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Staff Breakfast Cost</small>
+                <h4 class="mb-0 text-danger">{{ number_format($totalBreakfastCost, 0) }} UGX</h4>
+            </div>
+            <div class="icon-circle bg-danger text-white">
+                <i class="bi bi-egg-fried"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+
        
 <div class="col-6 col-md-3">
     <div class="card h-100 shadow-sm p-3 position-relative overflow-hidden" style="transition: transform 0.3s; cursor: pointer;"
@@ -336,7 +351,8 @@
             @foreach($recentStockAdditions as $stock)
             <tr>
               <td>{{ $stock->ingredient->name ?? '-' }}</td>
-              <td>{{ number_format($stock->quantity_added) }}</td>
+              <td>{{ number_format($stock->quantity_changed, 2) }}</td>
+
                 <td>
                 <span class="badge bg-{{ $stock->transaction_type == 'addition' ? 'success' : 'warning' }}">
                     {{ ucfirst($stock->transaction_type) }}

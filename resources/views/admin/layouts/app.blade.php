@@ -341,6 +341,12 @@ body {
                 </div>
             </div>
 
+            <!-- Staff Breakfast -->
+<a href="{{ route('admin.staff_breakfast.index') }}" 
+   class="{{ request()->routeIs('admin.staff_breakfast.*') ? 'active' : '' }}">
+   <i class="bi bi-cup-straw"></i> Staff Breakfast
+</a>
+
             <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#damagesCollapse">

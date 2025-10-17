@@ -275,18 +275,19 @@
                             <td class="text-end">
                                 @if($item->transaction_type == 'usage')
                                     <span class="badge bg-danger-subtle text-danger fw-semibold px-3 py-2">
-                                        -{{ number_format($item->quantity_changed, 2) }}
+                                        -{{ number_format($item->quantity_changed, 2) }} {{ $item->ingredient->unit ?? '' }}
                                     </span>
                                 @elseif($item->transaction_type == 'adjustment')
                                     <span class="badge bg-warning-subtle text-warning fw-semibold px-3 py-2">
-                                        ±{{ number_format($item->quantity_changed, 2) }}
+                                        ±{{ number_format($item->quantity_changed, 2) }} {{ $item->ingredient->unit ?? '' }}
                                     </span>
                                 @else
                                     <span class="badge bg-success-subtle text-success fw-semibold px-3 py-2">
-                                        +{{ number_format($item->quantity_changed, 2) }}
+                                        +{{ number_format($item->quantity_changed, 2) }} {{ $item->ingredient->unit ?? '' }}
                                     </span>
                                 @endif
-                            </td>
+                                </td>
+
                             <td>
                                 <small class="text-muted">
                                     <i class="bi bi-person-circle"></i> {{ $item->addedBy->name ?? 'System' }}
@@ -321,14 +322,17 @@
             <!-- Pagination -->
             @if($history->hasPages())
             <div class="card-footer bg-white border-top">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
                     <div class="text-muted small">
                         Showing {{ $history->firstItem() }} to {{ $history->lastItem() }} of {{ $history->total() }} entries
                     </div>
-                    {{ $history->appends(request()->query())->links() }}
+                    <div>
+                        {{ $history->appends(request()->query())->onEachSide(1)->links('pagination::bootstrap-5') }}
+                    </div>
                 </div>
             </div>
             @endif
+
 
             @else
                 <div class="text-center py-5">
@@ -437,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             </span>
                         </td></tr>
                         <tr><th>Quantity Before</th><td>${formatQuantity(data.quantity_before)}</td></tr>
-                        <tr><th>Quantity Changed</th><td>${formatQuantity(data.quantity_changed)}</td></tr>
+                        <tr><th>Quantity Changed</th><td>${formatQuantity(data.quantity_changed)} ${data.ingredient?.unit || ''}</td></tr>
                         <tr><th>Quantity After</th><td>${formatQuantity(data.quantity_after)}</td></tr>
                         <tr><th>Added By</th><td>${data.added_by?.name || 'System'}</td></tr>
                         <tr><th>Date & Time</th><td>${new Date(data.created_at).toLocaleString()}</td></tr>

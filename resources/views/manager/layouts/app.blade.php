@@ -167,6 +167,10 @@ body {
             <i class="bi bi-exclamation-triangle"></i> Damages
         </a>
 
+        <a href="{{ route('manager.staff_breakfast.index') }}" class="{{ request()->routeIs('manager.breakfast.*') ? 'active' : '' }}">
+            <i class="bi bi-cup-straw"></i> Staff Breakfast
+        </a>
+
 
   
             <a href="{{ route('manager.production.index') }}" 

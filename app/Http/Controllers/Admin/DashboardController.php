@@ -16,6 +16,8 @@ use App\Models\Expense;
 use App\Models\StockHistory;
 use App\Models\BankDeposit;
 use App\Models\Damage;
+use App\Models\StaffBreakfast;
+
 
 
 
@@ -49,6 +51,13 @@ class DashboardController extends Controller
     }
 
     $to = $now->endOfDay();
+
+    // Total spent on approved staff breakfasts for this period
+    $totalBreakfastCost = StaffBreakfast::where('status', 'approved')
+        ->whereDate('created_at', '>=', $from->toDateString())
+        ->whereDate('created_at', '<=', $to->toDateString())
+        ->sum('total_value');
+
 
     // Summary counts
     $totalUsers = User::count();
@@ -104,7 +113,9 @@ class DashboardController extends Controller
         ->sum('amount');
 
     // Net Profit
-    $netProfit = $grossProfit - $expensesTotal;
+    // Ensure net profit never goes below zero
+$netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
+
 
     // Dispatch items count
     $dispatchItemsCount = (int) Dispatch::whereDate('dispatch_date', '>=', $from->toDateString())
@@ -211,7 +222,8 @@ class DashboardController extends Controller
         'bankedTotal',
         'grossProfit',
         'netProfit',
-        'damageRevenue'
+        'damageRevenue',
+        'totalBreakfastCost'
     ));
 }
 
