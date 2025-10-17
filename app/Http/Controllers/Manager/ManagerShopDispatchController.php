@@ -29,8 +29,8 @@ class ManagerShopDispatchController extends Controller
         'half_cakes'        => 'Half Cakes',
         'block_cakes'       => 'Block Cakes',
         'slab_cakes'        => 'Slab Cakes',
-        'birthday_cakes50'  => 'Birthday Cakes (50k)',
-        'birthday_cakes30'  => 'Birthday Cakes (30k)',
+        'birthday_cakes50k'  => 'Birthday Cakes (50k)',
+        'birthday_cakes30k'  => 'Birthday Cakes (30k)',
         'quarter_breads'    => 'Quarter Breads',
         'mandazis'          => 'Mandazis',
     ];
@@ -47,15 +47,15 @@ public function store(Request $request)
     ]);
 
     DB::beginTransaction();
-    try {
-        // 1️⃣ Get bakery stock for that product
-        $bakeryStock = BakeryStock::where('product', $request->product_type)->first();
 
+    try {
+        // 1️⃣ Get bakery stock for the product
+        $bakeryStock = BakeryStock::where('product', $request->product_type)->first();
         if (!$bakeryStock) {
             throw new \Exception("No bakery stock record found for {$request->product_type}. Please add it first.");
         }
 
-        // 2️⃣ Ensure enough stock exists
+        // 2️⃣ Ensure enough bakery stock exists
         if ($bakeryStock->quantity < $request->quantity) {
             throw new \Exception("Not enough bakery stock for {$request->product_type}. Available: {$bakeryStock->quantity}, trying to dispatch: {$request->quantity}");
         }
@@ -69,15 +69,21 @@ public function store(Request $request)
             'product_type' => $request->product_type,
         ]);
 
-        if (!$shopStock->exists) {
-            $shopStock->opening_stock = 0;
-            $shopStock->sold = 0;
-            $shopStock->remaining = 0;
-            $shopStock->dispatched = 0;
+        // 5️⃣ Initialize numeric fields if null
+        $shopStock->opening_stock  = $shopStock->opening_stock ?? 0;
+        $shopStock->dispatched     = $shopStock->dispatched ?? 0;
+        $shopStock->sold           = $shopStock->sold ?? 0;
+        $shopStock->remaining      = $shopStock->remaining ?? 0;
+
+        // Optional: Set opening stock for first dispatch
+        if ($shopStock->opening_stock === 0 && $shopStock->dispatched === 0) {
+            $shopStock->opening_stock = $request->quantity;
         }
 
+        // 6️⃣ Increment dispatched and remaining stock
         $shopStock->dispatched += $request->quantity;
         $shopStock->remaining  += $request->quantity;
+
         $shopStock->save();
 
         DB::commit();
@@ -85,6 +91,7 @@ public function store(Request $request)
         return redirect()
             ->route('manager.shop-dispatch.index')
             ->with('success', "{$request->quantity} {$request->product_type} dispatched to Bakery Shop successfully. Bakery stock updated.");
+
     } catch (\Exception $e) {
         DB::rollBack();
         return redirect()
@@ -94,12 +101,13 @@ public function store(Request $request)
 }
 
 
+
     public function edit(ShopStock $shopStock)
     {
         $products = [
             'buns','small_breads','big_breads','donuts',
-            'half_cakes','block_cakes','slab_cakes','birthday_cakes30',
-            'birthday_cakes50','quarter_breads','mandazis','toasted_bread',
+            'half_cakes','block_cakes','slab_cakes','birthday_cakes30k',
+            'birthday_cakes50k','quarter_breads','mandazis','toasted_bread',
         ];
 
         return view('manager.shop_dispatch.edit', compact('shopStock','products'));

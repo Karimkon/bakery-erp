@@ -60,6 +60,14 @@ return [
             'report' => false,
         ],
 
+        'bank_receipts' => [
+            'driver' => 'local',
+            'root' => public_path('storage/bank_receipts'),
+            'url' => env('APP_URL').'/storage/bank_receipts',
+            'visibility' => 'public',
+        ],
+
+
     ],
 
     /*

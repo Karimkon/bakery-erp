@@ -37,9 +37,6 @@
                     <td class="text-end">{{ number_format($row->sold) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($row->remaining) }}</td>
                     <td class="text-end">
-                        <a href="{{ route('manager.shop-dispatch.edit',$row) }}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-pencil"></i>
-                        </a>
                         <form action="{{ route('manager.shop-dispatch.destroy',$row) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this record?')">
                             @csrf @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>

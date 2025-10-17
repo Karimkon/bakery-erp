@@ -495,7 +495,8 @@ $(function () {
         }
 
         // Balance due = remaining inventory + credit sales + current back debt
-        const balanceDue = remainingInventoryValue + creditSalesValue + originalBackDebt;
+        const balanceDue = remainingInventoryValue + creditSalesValue + newBackDebt;
+
 
 
 

@@ -350,16 +350,23 @@ class ManagerDispatchController extends Controller
             // ============================================
             // STEP 5: Update Driver Back Debt (CORRECTED)
             // ============================================
+           // STEP 5: Update Driver Back Debt - Recalculate from ALL dispatches
             $driver = $dispatch->driver;
-            
-            if ($shortfall > 0) {
-                // Underpayment - ADD to back debt
-                $driver->back_debt += $shortfall;
-            } elseif ($shortfall < 0) {
-                // Overpayment - REDUCE back debt
-                $overpayment = abs($shortfall);
-                $driver->back_debt = max(0, $driver->back_debt - $overpayment);
-            }
+
+            // Get OLD shortfall from this dispatch (before update)
+            $oldExpected = $dispatch->expected_cash_after_deductions ?? 0;
+            $oldActual = $dispatch->cash_received ?? 0;
+            $oldShortfall = $oldExpected - $oldActual;
+
+            // Calculate NEW shortfall
+            $newShortfall = $expectedAfterDeductions - $actualCashReceived;
+
+            // Adjust back debt: Remove old impact, add new impact
+            $driver->back_debt -= $oldShortfall; // Reverse old
+            $driver->back_debt += $newShortfall; // Apply new
+
+            $driver->back_debt = max(0, $driver->back_debt);
+            $driver->save();
             // If shortfall == 0: driver paid exactly what was expected
             
             $driver->save();
@@ -426,7 +433,7 @@ class ManagerDispatchController extends Controller
             'birthday_cakes' => 200,
         ]);
 
-        $threshold = (float) config('commissions.threshold', 1_000_000);
+        $threshold = (float) config('commissions.threshold', 1000000);
         $basis = config('commissions.threshold_basis', 'available');
 
         $basisValue = 0.0;

@@ -39,8 +39,13 @@ class BankDepositController extends Controller
 
          // Handle file upload
         if ($request->hasFile('receipt')) {
-        $validated['receipt'] = $request->file('receipt')->store('bank_receipts', 'public');
-    }
+    $validated['receipt'] = $request->file('receipt')->storeAs(
+        '', 
+        time().'_'.$request->file('receipt')->getClientOriginalName(),
+        'bank_receipts'
+    );
+}
+
 
         BankDeposit::create($validated);
 
