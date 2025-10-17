@@ -3,6 +3,7 @@ return [
     // Minimum pieces per flour bag (only a lower bound)
     'yield_min_per_bag' => [
         'buns' => 150,
+        
     ],
 
     // Flour “bags” consumed per ONE unit (tune these anytime)

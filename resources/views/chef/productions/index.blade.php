@@ -4,7 +4,8 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="bi bi-journal-text me-2"></i> My Productions</h4>
+        <h4 class="mb-1"><i class="bi bi-person-circle me-2"></i> Chef: <strong>{{ Auth::user()->name }}</strong></h4>
+        <h4><i class="bi bi-journal-text me-2"></i> Add My Productions</h4>
         <a href="{{ route('chef.productions.create') }}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg"></i> Add Production
         </a>
@@ -19,6 +20,7 @@
             <thead>
                 <tr>
                     <th>Date</th>
+                    <th>Chef</th>
                     <th>Flour</th>
                     <th>Outputs</th>
                     <th>Total (UGX)</th>
@@ -30,6 +32,7 @@
                 @foreach($productions as $p)
                 <tr>
                     <td>{{ $p->production_date }}</td>
+                    <td>{{ $p->chef->name ?? 'N/A' }}</td>
                     <td>{{ $p->flour_bags }} bags</td>
                     <td>
                         Buns: {{ $p->buns }},

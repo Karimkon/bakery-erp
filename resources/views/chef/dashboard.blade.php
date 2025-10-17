@@ -4,7 +4,8 @@
 
 @section('content')
     <h3 class="mb-4">
-        <i class="bi bi-speedometer2 me-2"></i> My Dashboard
+        <h4 class="mb-1"><i class="bi bi-person-circle me-2"></i> Dashboard Chef: <strong>{{ Auth::user()->name }}</strong></h4>
+
     </h3>
 
     <!-- Stats Cards -->

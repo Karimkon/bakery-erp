@@ -9,6 +9,7 @@ use App\Models\StockHistory; // ✅ Add this import
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\User;
 
 
 class ProductionController extends Controller
@@ -16,9 +17,11 @@ class ProductionController extends Controller
     public function index()
     {
         // Only THIS chef's productions
-        $productions = Production::where('user_id', Auth::id())
-            ->latest()->paginate(15);
-
+        $productions = Production::with('chef') // assuming you have a 'chef' relation in Production model
+        ->where('user_id', Auth::id())
+        ->latest()
+        ->paginate(15);
+        
         return view('chef.productions.index', compact('productions'));
     }
 

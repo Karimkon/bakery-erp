@@ -3,6 +3,8 @@
 @section('title','Add Production')
 
 @section('content')
+<h4 class="mb-1"><i class="bi bi-person-circle me-2"></i> Chef: <strong>{{ Auth::user()->name }}</strong></h4>
+
     <h4 class="mb-4"><i class="bi bi-plus-lg me-2"></i> Add My Production</h4>
 
     <form method="POST" action="{{ route('chef.productions.store') }}" class="card shadow-sm p-4">

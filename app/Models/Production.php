@@ -52,4 +52,10 @@ class Production extends Model
         return $this->hasMany(\App\Models\IngredientUsage::class);
     }
 
+    public function chef()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+
 }
