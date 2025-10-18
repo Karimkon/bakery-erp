@@ -29,11 +29,11 @@
     </div>
     <div class="mb-3">
         <label>Unit Cost (UGX)</label>
-        <input type="number" name="unit_cost" value="{{ old('unit_cost', $ingredient->unit_cost) }}" class="form-control" required>
+        <input type="number" name="unit_cost" step="0.01" value="{{ old('unit_cost', $ingredient->unit_cost) }}" class="form-control" required>
     </div>
     <div class="mb-3">
         <label>Stock</label>
-        <input type="number" name="stock" value="{{ old('stock', $ingredient->stock) }}" class="form-control">
+        <input type="number" name="stock" step="0.01" value="{{ old('stock', $ingredient->stock) }}" class="form-control">
     </div>
 
     <button class="btn btn-primary">Update</button>

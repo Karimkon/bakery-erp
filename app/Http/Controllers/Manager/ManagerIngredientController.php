@@ -13,11 +13,30 @@ use App\Models\StockHistory;
 
 class ManagerIngredientController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $ingredients = Ingredient::orderBy('name')->paginate(15);
-        return view('manager.ingredients.index', compact('ingredients'));
+        // Start a query with chef relationship
+        $query = Ingredient::with('chef');
+
+        // Filter by chef if provided
+        if ($request->chef_id) {
+            $query->where('chef_id', $request->chef_id);
+        }
+
+        // Filter by ingredient name if provided
+        if ($request->name) {
+            $query->where('name', 'like', '%' . $request->name . '%');
+        }
+
+        // Paginate with query string so filters persist
+        $ingredients = $query->orderBy('name')->paginate(15)->withQueryString();
+
+        // Get all chefs for the filter dropdown
+        $chefs = User::where('role', 'chef')->get();
+
+        return view('manager.ingredients.index', compact('ingredients', 'chefs'));
     }
+
 
     public function create()
     {
