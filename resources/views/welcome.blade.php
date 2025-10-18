@@ -218,6 +218,12 @@
                 transform: translateY(0);
             }
         }
+
+        .role-card {
+            width: 220px; /* Ensures all cards have equal width */
+            min-height: 260px;
+        }
+
     </style>
 </head>
 
@@ -303,7 +309,9 @@
                     Choose Your Role
                 </h3>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+                <div class="flex flex-wrap justify-center gap-8 max-w-7xl mx-auto px-4">
+
+
                     
                     <!-- Admin Card -->
                     <a href="/admin/login" class="role-card group p-6 rounded-2xl text-center relative overflow-hidden">

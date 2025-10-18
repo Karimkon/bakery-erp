@@ -127,8 +127,14 @@
             <td class="text-danger">UGX {{ number_format($driverBackDebt, 0) }}</td>
         </tr>
         <tr>
+           @php
+                $creditSalesValue = $dispatch->items->sum(fn($i) => $i->sold_credit * $i->unit_price);
+                $totalBalanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
+            @endphp
+
             <td><strong>Total Balance Due (including debt):</strong></td>
-            <td><strong>UGX {{ number_format($dispatch->balance_due + $remainingInventoryValue + $driverBackDebt, 0) }}</strong></td>
+            <td><strong>UGX {{ number_format($totalBalanceDue, 0) }}</strong></td>
+
         </tr>
 
         @endif

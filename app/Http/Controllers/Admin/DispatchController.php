@@ -39,9 +39,15 @@ class DispatchController extends Controller
     // 3️⃣ Compute Balance Due (Unsold Goods) per dispatch
     $dispatches->transform(function ($d) {
         $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
-        $d->balanceDue = $remainingInventoryValue;
+        $creditSalesValue = $d->items->sum(fn($i) => $i->sold_credit * $i->unit_price);
+        $driverBackDebt = $d->driver?->back_debt ?? 0;
+
+        // Mirror the show blade / manager calculation: remaining + credit sales + back debt
+        $d->balanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
+
         return $d;
     });
+
 
     // 4️⃣ Manual pagination
     $page = $request->input('page', 1);

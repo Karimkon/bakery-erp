@@ -44,12 +44,15 @@
             <td>{{ number_format($d->total_sales_value, 0) }}</td>
             <td>{{ number_format($d->cash_received, 0) }}</td>
             
-            @php
-            $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
-            $driverBackDebt = $d->driver?->back_debt ?? 0;
-            $totalBalanceDue = $remainingInventoryValue + $driverBackDebt + $d->credit_sales_value; // or $d->balance_due depending on calculation
+           @php
+                $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+                $driverBackDebt = $d->driver?->back_debt ?? 0;
+                $creditSalesValue = $d->items->sum(fn($i) => $i->sold_credit * $i->unit_price);
+                $totalBalanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
             @endphp
+
             <td>{{ number_format($totalBalanceDue, 0) }}</td>
+
 
 
 

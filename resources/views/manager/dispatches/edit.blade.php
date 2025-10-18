@@ -111,6 +111,7 @@
     <input type="hidden" name="total_sales_value" id="total_sales_value">
     <input type="hidden" name="total_items_sold" id="total_items_sold">
     <input type="hidden" name="driver_expenses" id="driver_expenses_total">
+    <input type="hidden" name="back_debt_hidden" id="back_debt_hidden" value="{{ old('back_debt', $dispatch->driver->back_debt) }}">
 
     <hr class="my-4">
 
@@ -256,6 +257,19 @@
 
     </div>
 
+  <div class="row g-3 mt-3">
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Back Debt (UGX)</label>
+        <div class="input-group">
+            <input type="number" step="0.01" name="back_debt" id="back_debt_input"
+                   class="form-control form-control-lg"
+                   value="{{ old('back_debt', $dispatch->driver->back_debt) }}" readonly>
+            <button type="button" id="unlock_back_debt" class="btn btn-outline-secondary">Unlock</button>
+        </div>
+        <small class="text-muted">Adjust only if you are manually reconciling debt.</small>
+    </div>
+</div>
+
     <div class="row g-3 mt-3">
 
         <div class="col-md-12">
@@ -276,8 +290,45 @@
 
 @push('scripts')
 <script>
+
 $(function () {
     'use strict';
+
+    // Define drivers who should not receive commission
+const excludedDrivers = ['Nakato Kampala', 'Aria Nabadda'];
+
+// Detect currently selected driver name from the dropdown (disabled or not)
+let currentDriverName = $('#driver_id option:selected').text().trim();
+
+// If driver select is disabled (readonly), we still get its text from the selected option
+if (!currentDriverName) {
+    currentDriverName = '{{ $dispatch->driver->name }}';
+}
+
+
+    // Back debt handling
+    $('#unlock_back_debt').on('click', function() {
+        const $input = $('#back_debt_input');
+        const isReadonly = $input.prop('readonly');
+        
+        if (isReadonly) {
+            $input.prop('readonly', false).focus();
+            $(this).text('Lock').removeClass('btn-outline-secondary').addClass('btn-outline-warning');
+        } else {
+            $input.prop('readonly', true);
+            $(this).text('Unlock').removeClass('btn-outline-warning').addClass('btn-outline-secondary');
+            recomputeTotals();
+        }
+    });
+
+    // Update totals when back debt is manually changed
+    $('#back_debt_input').on('input', function() {
+        if (!$(this).prop('readonly')) {
+            // Sync with hidden field
+            $('#back_debt_hidden').val($(this).val());
+            recomputeTotals();
+        }
+    });
 
     if (typeof $.fn.select2 !== 'undefined') {
         $('.select2').select2({ placeholder: 'Search driver' });
@@ -429,14 +480,21 @@ $(function () {
             const soldCredit = parseIntSafe($r.data('sold-credit')); // From data attribute
             const totalSold = soldCash + soldCredit;
             const rate = parseFloatSafe(rates[product] || 0);
-            const commission = Math.round(totalSold * rate * multiplier);
+
+            let commission = 0;
+
+            // Only calculate commission if driver is not excluded
+            if (!excludedDrivers.includes(currentDriverName)) {
+                commission = Math.round(totalSold * rate * multiplier);
+            }
+
 
             $r.find('.commission-col').text(formatCurrency(commission));
             $r.find('.commission-value').val(commission);
         });
     }
 
-    // Recompute all totals
+    // Recompute all totals - SINGLE FUNCTION (removed duplicate)
     function recomputeTotals() {
         let calculatedCashReceived = 0;
         let totalItemsSold = 0;
@@ -481,31 +539,17 @@ $(function () {
             actualCashReceived = expectedAfterDeductions;
         }
 
-        // Calculate shortfall (positive = underpaid, negative = overpaid)
-        const shortfall = expectedAfterDeductions - actualCashReceived;
-
-        // Update back debt based on shortfall
-        let newBackDebt = originalBackDebt;
-        if (shortfall > 0) {
-            // Underpayment - add to debt
-            newBackDebt += shortfall;
-        } else if (shortfall < 0) {
-            // Overpayment - reduce debt
-            newBackDebt = Math.max(0, newBackDebt + shortfall); // shortfall is negative
-        }
+        // Get current back debt value from input (manual adjustment only)
+        const currentBackDebt = parseFloatSafe($('#back_debt_input').val());
 
         // Balance due = remaining inventory + credit sales + current back debt
-        const balanceDue = remainingInventoryValue + creditSalesValue + newBackDebt;
-
-
-
+        const balanceDue = remainingInventoryValue + creditSalesValue + currentBackDebt;
 
         // Update display fields
         $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
         $('#commission_total_display').val(formatCurrency(commissionTotal));
         $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
         $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
-        $('#back_debt_display').val(formatCurrency(newBackDebt));
         $('#balance_due_display').val(formatCurrency(balanceDue));
 
         // Update hidden form fields
@@ -600,6 +644,17 @@ $(function () {
         if (!actualCash || actualCash == '' || actualCash == '0') {
             const expectedAfterDeductions = parseFloat($('#expected_after_deductions_display').val().replace(/,/g, ''));
             $('#actual_cash_received').val(expectedAfterDeductions.toFixed(2));
+        }
+        
+        // Ensure back_debt field is included in form submission even if readonly
+        const backDebtValue = $('#back_debt_input').val();
+        if (backDebtValue !== undefined && backDebtValue !== '') {
+            // Update hidden field with current value
+            $('#back_debt_hidden').val(backDebtValue);
+            $('#back_debt_input').prop('readonly', false);
+            setTimeout(() => {
+                $('#back_debt_input').prop('readonly', true);
+            }, 100);
         }
         
         // Save signature
