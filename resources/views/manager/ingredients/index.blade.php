@@ -72,5 +72,7 @@
     </table>
 </div>
 
-{{ $ingredients->withQueryString()->links() }}
+<div class="mt-3 d-flex justify-content-end">
+    {{ $ingredients->links('pagination::bootstrap-5') }}
+</div>
 @endsection

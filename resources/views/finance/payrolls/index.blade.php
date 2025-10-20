@@ -5,7 +5,7 @@
 <div class="d-flex justify-content-between mb-3">
     <h4><i class="bi bi-cash-stack me-2"></i> Payroll Records</h4>
     <a href="{{ route('finance.payrolls.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Add Payroll
+        <i class="bi bi-plus-circle"></i> Generate Payroll
     </a>
 </div>
 
@@ -51,11 +51,10 @@
         <tr>
             <th>User</th>
             <th>Month</th>
-            <th>Base Salary</th>
-            <th>Commission</th>
-            <th>Total Salary</th>
+            <th>Commission/Salary</th>
+            <th>Target Achievement</th>
             <th>Status</th>
-            <th>Action</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -63,27 +62,56 @@
         <tr>
             <td>{{ $pay->employee_name ?? ($pay->user->name ?? '-') }}</td>
             <td>{{ $pay->pay_month->format('F Y') }}</td>
-            <td>{{ number_format($pay->base_salary,0) }}</td>
-            <td>{{ number_format($pay->commission,0) }}</td>
-            <td>{{ number_format($pay->total_salary,0) }}</td>
+            <td><strong>UGX {{ number_format($pay->commission) }}</strong></td>
+            
+            {{-- Target Achievement --}}
+            <td>
+                @if($pay->user && $pay->user->chefTarget)
+                    @php
+                        $target = $pay->user->chefTarget->monthly_target;
+                        $produced = $pay->user->productions()
+                                    ->whereYear('production_date', $pay->pay_month->year)
+                                    ->whereMonth('production_date', $pay->pay_month->month)
+                                    ->sum('total_value');
+                        $progress = $target > 0 ? ($produced / $target) * 100 : 0;
+                    @endphp
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar {{ $progress >= 100 ? 'bg-success' : ($progress >= 75 ? 'bg-info' : 'bg-warning') }}" 
+                             role="progressbar" style="width: {{ min($progress,100) }}%;">
+                            {{ number_format($progress,1) }}%
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Produced: UGX {{ number_format($produced) }} / Target: UGX {{ number_format($target) }}
+                    </small>
+                @else
+                    <span class="text-muted">No target set</span>
+                @endif
+            </td>
+
             <td>
                 <span class="badge bg-{{ $pay->status=='paid'?'success':'warning' }}">
                     {{ ucfirst($pay->status) }}
                 </span>
             </td>
-            <td class="d-flex gap-2">
-                <a href="{{ route('finance.payrolls.edit',$pay) }}" class="btn btn-sm btn-secondary">
-                    <i class="bi bi-pencil-square"></i> Edit
-                </a>
-                <a href="{{ route('finance.payrolls.payslip',$pay) }}" target="_blank" 
-                   class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-printer"></i> Payslip
-                </a>
+            
+            <td>
+                <div class="btn-group" role="group">
+                    <a href="{{ route('finance.payrolls.edit',$pay) }}" 
+                       class="btn btn-sm btn-secondary" title="Change Status">
+                        <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="{{ route('finance.payrolls.payslip',$pay) }}" 
+                       target="_blank" 
+                       class="btn btn-sm btn-outline-primary" title="View Payslip">
+                        <i class="bi bi-printer"></i>
+                    </a>
+                </div>
             </td>
         </tr>
         @empty
         <tr>
-            <td colspan="7" class="text-center text-muted">No payroll records found.</td>
+            <td colspan="6" class="text-center text-muted">No payroll records found.</td>
         </tr>
         @endforelse
     </tbody>

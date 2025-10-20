@@ -341,6 +341,12 @@ body {
                 </div>
             </div>
 
+            <!-- Chef Targets -->
+<a href="{{ route('admin.chef_targets.index') }}" 
+   class="{{ request()->routeIs('admin.chef_targets.*') ? 'active' : '' }}">
+    <i class="bi bi-bullseye"></i> Chef Targets
+</a>
+
             <!-- Staff Breakfast -->
 <a href="{{ route('admin.staff_breakfast.index') }}" 
    class="{{ request()->routeIs('admin.staff_breakfast.*') ? 'active' : '' }}">

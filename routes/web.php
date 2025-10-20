@@ -234,6 +234,8 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
         ->name('staff_breakfast.approve');
     Route::post('staff-breakfast/{breakfast}/reject', [\App\Http\Controllers\Admin\AdminStaffBreakfastController::class, 'reject'])
         ->name('staff_breakfast.reject');
+
+    Route::resource('chef_targets', \App\Http\Controllers\Admin\ChefTargetController::class);
     
 });
 

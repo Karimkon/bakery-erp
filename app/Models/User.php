@@ -55,4 +55,15 @@ class User extends Authenticatable
     return $this->hasMany(\App\Models\Dispatch::class, 'driver_id');
 }
 
+
+    public function chefTarget()
+    {
+        return $this->hasOne(ChefTarget::class, 'chef_id');
+    }
+
+    public function productions()
+    {
+        return $this->hasMany(Production::class, 'user_id');
+    }
+
 }
