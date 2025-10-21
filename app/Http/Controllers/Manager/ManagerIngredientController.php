@@ -37,6 +37,31 @@ class ManagerIngredientController extends Controller
         return view('manager.ingredients.index', compact('ingredients', 'chefs'));
     }
 
+    public function quickAddStock(Request $request, Ingredient $ingredient)
+{
+    $request->validate([
+        'stock_to_add' => 'required|numeric|min:0.01'
+    ]);
+
+    $oldStock = $ingredient->stock;
+    $ingredient->stock += $request->stock_to_add;
+    $ingredient->save();
+
+    // Record in stock history
+    StockHistory::create([
+        'ingredient_id' => $ingredient->id,
+        'chef_id'       => $ingredient->chef_id,
+        'quantity_added'=> $request->stock_to_add,
+        'quantity_changed'=> $request->stock_to_add,
+        'added_by'      => auth()->id(),
+    ]);
+
+    // Reset modal flag for admin
+    session()->forget('seen_stock_modal');
+
+    return redirect()->route('manager.ingredients.index')
+        ->with('success', "Successfully added {$request->stock_to_add} {$ingredient->unit} of {$ingredient->name} to stock.");
+}
 
     public function create()
     {

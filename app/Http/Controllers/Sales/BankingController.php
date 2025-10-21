@@ -7,23 +7,31 @@ use App\Models\Banking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Services\CashBalanceService;
 
 class BankingController extends Controller
 {
     // Show all bankings
-    public function index()
+     public function index()
     {
         $bankings = Banking::where('user_id', Auth::id())
             ->latest()
             ->paginate(20);
 
-        return view('sales.bankings.index', compact('bankings'));
+        // Get current cash balance
+        $cashService = new CashBalanceService();
+        $balance = $cashService->getAvailableCash();
+
+        return view('sales.bankings.index', compact('bankings', 'balance'));
     }
 
     // Form
     public function create()
     {
-        return view('sales.bankings.create');
+        $cashService = new CashBalanceService();
+        $balance = $cashService->getAvailableCash();
+        
+        return view('sales.bankings.create', compact('balance'));
     }
 
     // Save banking record

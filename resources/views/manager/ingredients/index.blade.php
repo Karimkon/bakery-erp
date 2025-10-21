@@ -43,6 +43,7 @@
                 <th>Unit</th>
                 <th>Price/Unit (UGX)</th>
                 <th>Stock</th>
+                <th>Quick Add</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -55,17 +56,36 @@
                 <td>{{ number_format($ing->unit_cost, 2) }}</td>
                 <td>{{ number_format($ing->stock, 2) }}</td>
                 <td>
-                    <a href="{{ route('manager.ingredients.show',$ing) }}" class="btn btn-sm btn-info">View</a>
-                    <a href="{{ route('manager.ingredients.edit',$ing) }}" class="btn btn-sm btn-warning">Edit</a>
+                    <!-- Quick Add Stock Form -->
+                    <form action="{{ route('manager.ingredients.quick-add-stock', $ing) }}" method="POST" class="d-inline">
+                        @csrf
+                        <div class="input-group input-group-sm" style="width: 150px;">
+                            <input type="number" name="stock_to_add" class="form-control form-control-sm" 
+                                   placeholder="Add stock" step="0.01" min="0.01" required>
+                            <button type="submit" class="btn btn-success btn-sm" title="Add Stock">
+                                <i class="bi bi-plus-lg"></i> Add
+                            </button>
+                        </div>
+                    </form>
+                </td>
+                <td>
+                    <a href="{{ route('manager.ingredients.show',$ing) }}" class="btn btn-sm btn-info" title="View">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{{ route('manager.ingredients.edit',$ing) }}" class="btn btn-sm btn-warning" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
                     <form action="{{ route('manager.ingredients.destroy',$ing) }}" method="POST" class="d-inline">
                         @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this ingredient?')">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this ingredient?')" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </form>
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="6" class="text-center">No ingredients found.</td>
+                <td colspan="7" class="text-center">No ingredients found.</td>
             </tr>
             @endforelse
         </tbody>

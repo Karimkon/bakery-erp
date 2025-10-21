@@ -245,6 +245,7 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
 Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(function () {
     Route::get('/dashboard', [ChefDashboardController::class,'index'])->name('dashboard');
     Route::resource('productions', \App\Http\Controllers\Chef\ProductionController::class);
+    Route::get('/progress-history', [ChefDashboardController::class, 'progressHistory'])->name('progress-history');
 
 });
 
@@ -343,6 +344,8 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
     Route::get('/progress-history', [ManagerDashboardController::class, 'progressHistory'])
         ->name('progress-history');
 
+        Route::post('/ingredients/{ingredient}/quick-add-stock', [\App\Http\Controllers\Manager\ManagerIngredientController::class, 'quickAddStock'])
+    ->name('ingredients.quick-add-stock');
     });
 
 

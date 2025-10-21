@@ -6,17 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-
     {{-- Bootstrap 5 & Icons --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
 
-
     <style>
         /* === SALES LAYOUT ENHANCEMENTS === */
-
-        /* Accent colour for sales area – change to match your brand */
         :root {
             --sales-accent: #e09b3d; /* warm bakery orange */
             --sales-hover: #fff;
@@ -51,7 +47,7 @@
             border: none;
             display: flex;
             align-items: center;
-            gap: 0.75rem;         /* consistent icon/text spacing */
+            gap: 0.75rem;
             padding: 0.75rem 1rem;
             color: var(--sales-text);
             font-weight: 500;
@@ -67,6 +63,12 @@
             color: var(--sales-hover);
             transform: translateX(4px);
             box-shadow: 0 3px 6px rgba(0,0,0,.05);
+        }
+
+        /* Dashboard link special styling */
+        .sidebar .list-group-item.dashboard-link {
+            background: rgba(224, 155, 61, 0.1);
+            border-left: 3px solid var(--sales-accent);
         }
 
         /* Make icons inherit colour */
@@ -99,7 +101,6 @@
             color: var(--sales-accent);
         }
 
-        /* POS cards on main panel */
         .pos-card {
             cursor: pointer;
             border-radius: 8px;
@@ -124,19 +125,30 @@
         <aside class="col-12 col-lg-2 sidebar p-3">
             <h5 class="mb-4">Sales</h5>
             <div class="list-group">
-                <a class="list-group-item list-group-item-action" href="{{ route('sales.sales.index') }}">
+                {{-- Dashboard Link --}}
+                <a class="list-group-item list-group-item-action dashboard-link {{ request()->routeIs('sales.dashboard') ? 'active' : '' }}" 
+                   href="{{ route('sales.dashboard') }}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('sales.sales.index') ? 'active' : '' }}" 
+                   href="{{ route('sales.sales.index') }}">
                     <i class="bi bi-cash-coin"></i> Shop Sales
                 </a>
-                <a class="list-group-item list-group-item-action" href="{{ route('sales.sales.create') }}">
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('sales.sales.create') ? 'active' : '' }}" 
+                   href="{{ route('sales.sales.create') }}">
                     <i class="bi bi-bag-plus"></i> New Sale (POS)
                 </a>
-                <a class="list-group-item list-group-item-action" href="{{ route('sales.stock.index') }}">
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('sales.stock.index') ? 'active' : '' }}" 
+                   href="{{ route('sales.stock.index') }}">
                     <i class="bi bi-box-seam"></i> Shop Stock
                 </a>
-                <a class="list-group-item list-group-item-action" href="{{ route('sales.bankings.index') }}">
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('sales.bankings.index') ? 'active' : '' }}" 
+                   href="{{ route('sales.bankings.index') }}">
                     <i class="bi bi-bank"></i> Bankings
                 </a>
-                <a class="list-group-item list-group-item-action" href="{{ route('sales.bankings.create') }}">
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('sales.bankings.create') ? 'active' : '' }}" 
+                   href="{{ route('sales.bankings.create') }}">
                     <i class="bi bi-receipt-cutoff"></i> Record Banking
                 </a>
             </div>

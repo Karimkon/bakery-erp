@@ -17,6 +17,7 @@ use App\Models\StockHistory;
 use App\Models\BankDeposit;
 use App\Models\Damage;
 use App\Models\StaffBreakfast;
+use App\Models\Banking;
 
 
 
@@ -114,7 +115,7 @@ class DashboardController extends Controller
 
     // Net Profit
     // Ensure net profit never goes below zero
-$netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
+    $netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
 
 
     // Dispatch items count
@@ -153,10 +154,16 @@ $netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
         session()->put('seen_stock_modal', true);
     }
 
-    // Bank deposits
-    $bankedTotal = BankDeposit::whereDate('deposit_date', '>=', $from->toDateString())
+    // TOTAL bankings = Bakery + Driver bankings
+    $bakeryBankings = BankDeposit::whereDate('deposit_date', '>=', $from->toDateString())
         ->whereDate('deposit_date', '<=', $to->toDateString())
         ->sum('amount');
+
+    $driverBankings = Banking::whereDate('date', '>=', $from->toDateString())
+        ->whereDate('date', '<=', $to->toDateString())
+        ->sum('amount');
+
+    $bankedTotal = $bakeryBankings + $driverBankings;
 
     // Charts: last 7 days
     $chartDays = 7;
@@ -197,6 +204,10 @@ $netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
     // Bakery stocks
     $bakeryStocks = BakeryStock::orderBy('product')->get();
 
+    // Money left at bakery (cash physically available)
+    $bakeryCashLeft = max(0, $bakerySalesCash - $bankedTotal - $expensesTotal);
+
+
     return view('admin.dashboard', compact(
         'filter',
         'title',
@@ -223,7 +234,8 @@ $netProfit = max(0, $grossProfit - $expensesTotal - $totalBreakfastCost);
         'grossProfit',
         'netProfit',
         'damageRevenue',
-        'totalBreakfastCost'
+        'totalBreakfastCost',
+        'bakeryCashLeft'
     ));
 }
 

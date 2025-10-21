@@ -12,6 +12,24 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
+            {{-- Add this to the top of your create.blade.php --}}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Current Available Cash:</strong> 
+                    UGX {{ number_format($balance['available_cash']) }}
+                </div>
+                <small>
+                    Total Sales: UGX {{ number_format($balance['total_sales']) }} | 
+                    Banked: UGX {{ number_format($balance['total_banked']) }} | 
+                    Expenses: UGX {{ number_format($balance['total_expenses']) }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
             <form method="POST" action="{{ route('sales.bankings.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="row g-3">

@@ -205,9 +205,24 @@
 </div>
 
 
+<div class="col-6 col-md-3">
+    <div class="card h-100 shadow-sm p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">{{ $title }} Money at Bakery</small>
+                <h4 class="mb-0 text-success">{{ number_format($bakeryCashLeft, 0) }} UGX</h4>
+            </div>
+            <div class="icon-circle bg-success text-white">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+        </div>
+    </div>
+</div>
 
 
     </div>
+
+    
 
      
     <!-- Split cards -->
