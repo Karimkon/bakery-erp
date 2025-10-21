@@ -5,13 +5,7 @@ namespace App\Http\Controllers\Manager;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use App\Models\BakeryStock;
-use App\Models\Production;
-use App\Models\Ingredient;
-use App\Models\User;
-use App\Models\Dispatch;
-use App\Models\Sale;
-use App\Models\ManagerTarget;
+use App\Models\{BakeryStock, Production, Ingredient, User, Dispatch, ManagerProgressDaily, Sale, ManagerTarget};
 use Illuminate\Support\Facades\DB;
 
 class ManagerDashboardController extends Controller
@@ -192,6 +186,8 @@ class ManagerDashboardController extends Controller
             'progress_percent' => $progress,
         ];
 
+        $this->saveDailyProgress($managerTarget, $totalProduced, $target);
+
         return view('manager.dashboard', compact(
             'filter', 'title',
             'bakeryStocks', 'ingredients',
@@ -209,4 +205,72 @@ class ManagerDashboardController extends Controller
             'verificationData', 'dailyTarget', 'daysCount'
         ));
     }
+
+     private function saveDailyProgress($managerTarget, $totalProduced, $target)
+{
+    try {
+        // Use the same timezone as your business
+        $today = Carbon::today('Africa/Kampala'); // or your timezone
+        
+        $progressPercentage = $target > 0 ? round(($totalProduced / $target) * 100, 2) : 0;
+
+        ManagerProgressDaily::updateOrCreate(
+            [
+                'manager_id' => auth()->id(),
+                'progress_date' => $today->format('Y-m-d')
+            ],
+            [
+                'target_amount' => $managerTarget->daily_target ?? 3000000,
+                'achieved_amount' => $totalProduced,
+                'progress_percentage' => $progressPercentage
+            ]
+        );
+        
+        \Log::info('Manager progress updated for user: ' . auth()->id() . ' on ' . $today->format('Y-m-d') . ' - Achieved: ' . $totalProduced);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error saving manager progress: ' . $e->getMessage());
+    }
+}
+
+public function progressHistory(Request $request)
+{
+    $managerId = auth()->id();
+    
+    // Get date filters
+    $startDate = $request->get('start_date', Carbon::now()->subDays(30)->format('Y-m-d'));
+    $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
+    $searchDate = $request->get('search_date');
+    
+    // Build query
+    $query = ManagerProgressDaily::where('manager_id', $managerId)
+        ->orderBy('progress_date', 'desc');
+    
+    // Apply date filters
+    if ($searchDate) {
+        $query->whereDate('progress_date', $searchDate);
+    } else {
+        $query->whereBetween('progress_date', [$startDate, $endDate]);
+    }
+    
+    $progressHistory = $query->paginate(20);
+    
+    // Calculate summary statistics
+    $summary = [
+        'total_days' => $progressHistory->total(),
+        'average_progress' => $progressHistory->avg('progress_percentage') ?? 0,
+        'target_achieved_days' => $progressHistory->where('progress_percentage', '>=', 100)->count(),
+        'total_achieved' => $progressHistory->sum('achieved_amount'),
+        'total_target' => $progressHistory->sum('target_amount'),
+    ];
+    
+    return view('manager.progress-history', compact(
+        'progressHistory',
+        'summary',
+        'startDate',
+        'endDate',
+        'searchDate'
+    ));
+}
+
 }

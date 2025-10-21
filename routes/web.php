@@ -236,6 +236,9 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
         ->name('staff_breakfast.reject');
 
     Route::resource('chef_targets', \App\Http\Controllers\Admin\ChefTargetController::class);
+
+    Route::get('/managers/{manager}/progress-history', [\App\Http\Controllers\Admin\ChefTargetController::class, 'managerProgressHistory'])
+        ->name('manager.progress-history');
     
 });
 
@@ -336,6 +339,9 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
         ->name('staff_breakfast.create');
     Route::post('staff-breakfast', [\App\Http\Controllers\Manager\ManagerStaffBreakfastController::class, 'store'])
         ->name('staff_breakfast.store');
+
+    Route::get('/progress-history', [ManagerDashboardController::class, 'progressHistory'])
+        ->name('progress-history');
 
     });
 

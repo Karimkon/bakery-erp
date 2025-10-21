@@ -17,11 +17,45 @@
 
 <!-- Manager Targets Section -->
 <div class="card mb-4">
-    <div class="card-header bg-primary text-white">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i> Manager Targets & Progress</h5>
+        
+        <!-- Date Filter -->
+        <form method="GET" class="d-flex align-items-center gap-2">
+            <label class="form-label text-white mb-0">View Progress for:</label>
+            <select name="progress_date" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+                <option value="{{ Carbon\Carbon::today()->format('Y-m-d') }}" 
+                    {{ $progressDate == Carbon\Carbon::today()->format('Y-m-d') ? 'selected' : '' }}>
+                    Today
+                </option>
+                <option value="{{ Carbon\Carbon::yesterday()->format('Y-m-d') }}" 
+                    {{ $progressDate == Carbon\Carbon::yesterday()->format('Y-m-d') ? 'selected' : '' }}>
+                    Yesterday
+                </option>
+                @foreach($availableDates as $date)
+                    @if(!in_array($date, [Carbon\Carbon::today()->format('Y-m-d'), Carbon\Carbon::yesterday()->format('Y-m-d')]))
+                    <option value="{{ $date }}" {{ $progressDate == $date ? 'selected' : '' }}>
+                        {{ \Carbon\Carbon::parse($date)->format('M d, Y') }}
+                    </option>
+                    @endif
+                @endforeach
+            </select>
+        </form>
     </div>
     <div class="card-body">
         @if($managerTargetsWithProgress->count() > 0)
+            <!-- Date Info -->
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle me-2"></i>
+                Showing progress data for: 
+                <strong>{{ \Carbon\Carbon::parse($progressDate)->format('F d, Y') }}</strong>
+                @if($progressDate == Carbon\Carbon::today()->format('Y-m-d'))
+                    <span class="badge bg-success ms-2">Live Data</span>
+                @else
+                    <span class="badge bg-secondary ms-2">Historical Data</span>
+                @endif
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-striped">
                     <thead>
@@ -31,6 +65,7 @@
                             <th>Monthly Target & Progress</th>
                             <th>Fixed Salary</th>
                             <th>Commission %</th>
+                            <th>History</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,6 +127,13 @@
                             <td>
                                 <span class="badge bg-warning text-dark fs-6">{{ $mt->commission_percentage }}%</span>
                             </td>
+                            <td>
+                                <a href="{{ route('admin.manager.progress-history', $mt->manager_id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="View Full History">
+                                    <i class="bi bi-clock-history"></i> History
+                                </a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -116,9 +158,6 @@
             <div class="text-center py-4">
                 <i class="bi bi-inbox display-1 text-muted"></i>
                 <p class="text-muted mt-3">No manager targets set yet.</p>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#managerTargetModal">
-                    <i class="bi bi-plus-lg"></i> Set First Manager Target
-                </button>
             </div>
         @endif
     </div>
@@ -181,7 +220,6 @@
         {{ $targets->links() }}
     </div>
 </div>
-
 
 <style>
 .progress {

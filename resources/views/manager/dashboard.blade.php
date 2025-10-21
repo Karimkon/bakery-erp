@@ -82,16 +82,32 @@
     <div class="card-body">
         <!-- Summary Section -->
         <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="text-center p-3 bg-light rounded">
-                    <h6 class="text-muted mb-1">TARGET</h6>
-                    <h4 class="mb-0 text-primary">{{ number_format($target) }}</h4>
-                    <small class="text-muted">UGX</small>
-                    <div class="mt-2">
-                        <small>{{ number_format($dailyTarget) }} × {{ $daysCount }} day{{ $daysCount > 1 ? 's' : '' }}</small>
-                    </div>
-                </div>
-            </div>
+           <div class="col-md-3">
+    <div class="text-center p-3 bg-light rounded position-relative">
+        <!-- Progress History Link -->
+        <a href="{{ route('manager.progress-history') }}" 
+           class="position-absolute top-0 end-0 mt-2 me-2 text-muted" 
+           title="View Progress History"
+           style="text-decoration: none;">
+            <i class="bi bi-clock-history"></i>
+        </a>
+        
+        <h6 class="text-muted mb-1">TARGET</h6>
+        <h4 class="mb-0 text-primary">{{ number_format($target) }}</h4>
+        <small class="text-muted">UGX</small>
+        <div class="mt-2">
+            <small>{{ number_format($dailyTarget) }} × {{ $daysCount }} day{{ $daysCount > 1 ? 's' : '' }}</small>
+        </div>
+        
+        <!-- Small link below -->
+        <div class="mt-2">
+            <a href="{{ route('manager.progress-history') }}" 
+               class="small text-primary text-decoration-none">
+                <i class="bi bi-bar-chart-line me-1"></i> View History
+            </a>
+        </div>
+    </div>
+</div>
             <div class="col-md-3">
                 <div class="text-center p-3 bg-success text-white rounded">
                     <h6 class="mb-1">ACHIEVED</h6>
