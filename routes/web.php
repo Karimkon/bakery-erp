@@ -246,7 +246,12 @@ Route::get('dispatches/history/{driver}', [\App\Http\Controllers\Admin\DispatchC
 
     Route::get('/managers/{manager}/progress-history', [\App\Http\Controllers\Admin\ChefTargetController::class, 'managerProgressHistory'])
         ->name('manager.progress-history');
-    
+
+    // Daily Cash Reports
+Route::get('/reports/daily-cash', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'index'])->name('reports.daily-cash');
+Route::get('/reports/daily-cash/range', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'dateRange'])->name('reports.daily-cash.range');
+Route::get('/reports/daily-cash/api/summary', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getDailySummary'])->name('reports.daily-cash.api.summary');
+Route::get('/api/cash-balance', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getCashBalance'])->name('api.cash-balance');
 });
 
 Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(function () {
@@ -258,7 +263,7 @@ Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(fu
 
 Route::middleware(['auth','role:sales'])->prefix('sales')->name('sales.')->group(function () {
     Route::get('/dashboard', [SalesDashboardController::class,'index'])->name('dashboard');
-    
+    Route::get('/cash-balance', [SalesDashboardController::class, 'getCashBalance'])->name('cash-balance');
     Route::resource('sales', SaleController::class)->only(['index','create','store','edit','update','destroy','show']);
     Route::resource('bankings', BankingController::class)->only(['index','create','store','edit','update','destroy','show']);
     Route::get('stock', [ShopStockController::class,'index'])->name('stock.index');

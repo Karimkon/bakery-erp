@@ -4,32 +4,68 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Models\Banking;
+use App\Models\Sale;
+use App\Models\Expense;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Services\CashBalanceService;
+use Carbon\Carbon;
 
 class BankingController extends Controller
 {
-    // Show all bankings
-     public function index()
+    public function index()
     {
         $bankings = Banking::where('user_id', Auth::id())
             ->latest()
             ->paginate(20);
 
-        // Get current cash balance
-        $cashService = new CashBalanceService();
-        $balance = $cashService->getAvailableCash();
+        // Calculate balance manually - remove user_id from expenses query
+        $totalSales = Sale::where('user_id', Auth::id())
+            ->where('payment_method', 'cash')
+            ->whereDate('created_at', '<=', Carbon::today())
+            ->sum('total_price');
+            
+        $totalBanked = Banking::where('user_id', Auth::id())
+            ->whereDate('date', '<=', Carbon::today())
+            ->sum('amount');
+            
+        // Expenses are global (no user_id filter)
+        $totalExpenses = Expense::whereDate('expense_date', '<=', Carbon::today())
+            ->sum('amount');
+            
+        $balance = [
+            'total_sales' => $totalSales ?? 0,
+            'total_banked' => $totalBanked ?? 0,
+            'total_expenses' => $totalExpenses ?? 0,
+            'available_cash' => ($totalSales ?? 0) - ($totalBanked ?? 0) - ($totalExpenses ?? 0)
+        ];
 
         return view('sales.bankings.index', compact('bankings', 'balance'));
     }
 
-    // Form
     public function create()
     {
-        $cashService = new CashBalanceService();
-        $balance = $cashService->getAvailableCash();
+        // Calculate balance manually - remove user_id from expenses query
+        $totalSales = Sale::where('user_id', Auth::id())
+            ->where('payment_method', 'cash')
+            ->whereDate('created_at', '<=', Carbon::today())
+            ->sum('total_price');
+            
+        $totalBanked = Banking::where('user_id', Auth::id())
+            ->whereDate('date', '<=', Carbon::today())
+            ->sum('amount');
+            
+        // Expenses are global (no user_id filter)
+        $totalExpenses = Expense::whereDate('expense_date', '<=', Carbon::today())
+            ->sum('amount');
+            
+        $balance = [
+            'total_sales' => $totalSales ?? 0,
+            'total_banked' => $totalBanked ?? 0,
+            'total_expenses' => $totalExpenses ?? 0,
+            'available_cash' => ($totalSales ?? 0) - ($totalBanked ?? 0) - ($totalExpenses ?? 0)
+        ];
         
         return view('sales.bankings.create', compact('balance'));
     }
@@ -63,21 +99,30 @@ class BankingController extends Controller
     // Show
     public function show(Banking $banking)
     {
-        $this->authorize('view', $banking);
+        // Manual authorization check
+        if ($banking->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
         return view('sales.bankings.show', compact('banking'));
     }
 
     // Edit
     public function edit(Banking $banking)
     {
-        $this->authorize('update', $banking);
+        // Manual authorization check
+        if ($banking->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
         return view('sales.bankings.edit', compact('banking'));
     }
 
     // Update
     public function update(Request $request, Banking $banking)
     {
-        $this->authorize('update', $banking);
+        // Manual authorization check
+        if ($banking->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $validated = $request->validate([
             'amount'         => 'required|numeric|min:100',
@@ -106,7 +151,10 @@ class BankingController extends Controller
     // Delete
     public function destroy(Banking $banking)
     {
-        $this->authorize('delete', $banking);
+        // Manual authorization check
+        if ($banking->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
 
         if ($banking->receipt_file) {
             Storage::disk('public')->delete($banking->receipt_file);

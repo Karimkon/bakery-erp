@@ -1,13 +1,13 @@
 <?php
 
 namespace App\Http\Controllers\Sales;
-
+use App\Http\Controllers\Sales\DashboardController;
 use App\Http\Controllers\Controller;
 use App\Models\Sale;
 use App\Models\ShopStock;
 use Illuminate\Support\Facades\Auth;
 use App\Services\CashBalanceService;
-use Carbon\Carbon; // Add this import
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -16,8 +16,11 @@ class DashboardController extends Controller
         $sales = Sale::where('user_id', Auth::id());
         $cashService = new CashBalanceService();
         
-        // Use today's data instead of all-time
+        // Get current available cash
         $balance = $cashService->getAvailableCash(Carbon::today());
+        
+        // Get today's cash flow for the real-time breakdown
+        $todayFlow = $cashService->getTodayCashFlow();
 
         $summary = [
             'count' => $sales->whereDate('created_at', Carbon::today())->count(),
@@ -28,15 +31,34 @@ class DashboardController extends Controller
             'available_cash' => $balance['available_cash']
         ];
 
-        // top 5 products for chart (also filter for today)
+        // Top 5 products for chart
         $topProducts = Sale::selectRaw('product_type, SUM(quantity) as qty')
             ->where('user_id', Auth::id())
-            ->whereDate('created_at', Carbon::today()) // Add this filter
+            ->whereDate('created_at', Carbon::today())
             ->groupBy('product_type')
             ->orderByDesc('qty')
             ->limit(5)
             ->pluck('qty','product_type');
 
-        return view('sales.dashboard', compact('summary', 'topProducts', 'balance'));
+        return view('sales.dashboard', compact('summary', 'topProducts', 'balance', 'todayFlow'));
+    }
+
+    // API endpoint for real-time updates
+    public function getCashBalance()
+    {
+        $cashService = new CashBalanceService();
+        $balance = $cashService->getAvailableCash(Carbon::today());
+        $todayFlow = $cashService->getTodayCashFlow();
+
+        return response()->json([
+            'available_cash' => $balance['available_cash'],
+            'cash_sales' => $balance['cash_sales'],
+            'total_banked' => $balance['total_banked'],
+            'total_expenses' => $balance['total_expenses'],
+            'today_cash_sales' => $todayFlow['today_cash_sales'],
+            'today_expenses' => $todayFlow['today_expenses'],
+            'today_banked' => $todayFlow['today_banked'],
+            'updated_at' => now()->format('H:i:s')
+        ]);
     }
 }

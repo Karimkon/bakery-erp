@@ -212,8 +212,15 @@
                 <small class="text-muted">{{ $title }} Money at Bakery</small>
                 <h4 class="mb-0 text-success">{{ number_format($bakeryCashLeft, 0) }} UGX</h4>
             </div>
-            <div class="icon-circle bg-success text-white">
-                <i class="bi bi-cash-stack"></i>
+            <div class="text-center">
+                <div class="icon-circle bg-success text-white mb-2">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <a href="{{ route('admin.reports.daily-cash') }}" 
+                   class="btn btn-sm btn-outline-primary animate-pulse" 
+                   style="font-size:0.7rem; padding:0.25rem 0.5rem;">
+                    <i class="bi bi-eye me-1"></i> View Details
+                </a>
             </div>
         </div>
     </div>
