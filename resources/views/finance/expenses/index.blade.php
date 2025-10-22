@@ -18,6 +18,67 @@
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
 
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ route('finance.expenses.index') }}">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="category" class="form-label">Category</label>
+                    <select name="category" id="category" class="form-select">
+                        <option value="">All Categories</option>
+                        @foreach($categories as $category)
+                            <option value="{{ $category }}" 
+                                {{ request('category') == $category ? 'selected' : '' }}>
+                                {{ $category }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="start_date" class="form-label">From Date</label>
+                    <input type="date" name="start_date" id="start_date" 
+                           value="{{ request('start_date') }}" class="form-control">
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="end_date" class="form-label">To Date</label>
+                    <input type="date" name="end_date" id="end_date" 
+                           value="{{ request('end_date') }}" class="form-control">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="min_amount" class="form-label">Min Amount</label>
+                    <input type="number" name="min_amount" id="min_amount" 
+                           value="{{ request('min_amount') }}" class="form-control" 
+                           placeholder="0" min="0">
+                </div>
+
+                <div class="col-md-2">
+                    <label for="max_amount" class="form-label">Max Amount</label>
+                    <input type="number" name="max_amount" id="max_amount" 
+                           value="{{ request('max_amount') }}" class="form-control" 
+                           placeholder="Any" min="0">
+                </div>
+                
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2 w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-12">
+                    <a href="{{ route('finance.expenses.index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-clockwise"></i> Reset Filters
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <table class="table table-bordered table-hover">
     <thead class="table-light">
         <tr>
@@ -62,5 +123,7 @@
     </tbody>
 </table>
 
-{{ $expenses->links() }}
+<div class="mt-3 d-flex justify-content-end">
+    {{ $expenses->appends(request()->query())->links('pagination::bootstrap-5') }}
+</div>
 @endsection

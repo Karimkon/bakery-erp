@@ -168,6 +168,13 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::get('/dashboard', [AdminDashboardController::class,'index'])->name('dashboard');
     Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
+
+    Route::get('dispatches/financial-report', [\App\Http\Controllers\Admin\DispatchController::class, 'financialReport'])
+    ->name('dispatches.financial-report');
+Route::get('dispatches/financial-details/{driverId}', [\App\Http\Controllers\Admin\DispatchController::class, 'financialDetails'])
+    ->name('dispatches.financial-details');
+Route::get('dispatches/history/{driver}', [\App\Http\Controllers\Admin\DispatchController::class, 'history'])
+    ->name('dispatches.history');
    
     Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
     Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])
@@ -277,7 +284,11 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
     // ✅ Custom route FIRST
     Route::get('dispatches/openings/{driver}/{date}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'openings'])
         ->name('dispatches.openings');
-    
+    Route::get('dispatches/financial-report', [\App\Http\Controllers\Manager\ManagerDispatchController::class, 'financialReport'])
+        ->name('dispatches.financial-report');
+    Route::get('dispatches/financial-details/{driverId}', [\App\Http\Controllers\Manager\ManagerDispatchController::class, 'financialDetails'])
+    ->name('dispatches.financial-details');
+
     // ✅ Resource route AFTER
     Route::resource('dispatches', App\Http\Controllers\Manager\ManagerDispatchController::class);
 
@@ -346,6 +357,8 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
 
         Route::post('/ingredients/{ingredient}/quick-add-stock', [\App\Http\Controllers\Manager\ManagerIngredientController::class, 'quickAddStock'])
     ->name('ingredients.quick-add-stock');
+
+    
     });
 
 

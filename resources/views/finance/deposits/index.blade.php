@@ -13,6 +13,48 @@
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
 
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ route('finance.deposits.index') }}">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="depositor_id" class="form-label">Depositor</label>
+                    <select name="depositor_id" id="depositor_id" class="form-select">
+                        <option value="">All Depositors</option>
+                        @foreach($depositors as $depositor)
+                            <option value="{{ $depositor->id }}" 
+                                {{ request('depositor_id') == $depositor->id ? 'selected' : '' }}>
+                                {{ $depositor->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" 
+                           value="{{ request('start_date') }}" class="form-control">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" name="end_date" id="end_date" 
+                           value="{{ request('end_date') }}" class="form-control">
+                </div>
+                
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <a href="{{ route('finance.deposits.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Reset
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <table class="table table-bordered table-hover">
     <thead class="table-light">
         <tr>
@@ -57,5 +99,8 @@
     </tbody>
 </table>
 
-{{ $deposits->links() }}
+
+<div class="mt-3 d-flex justify-content-end">
+    {{ $deposits->appends(request()->query())->links('pagination::bootstrap-5') }}
+</div>
 @endsection

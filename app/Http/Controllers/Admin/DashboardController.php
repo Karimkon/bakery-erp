@@ -205,7 +205,10 @@ class DashboardController extends Controller
     $bakeryStocks = BakeryStock::orderBy('product')->get();
 
     // Money left at bakery (cash physically available)
-    $bakeryCashLeft = max(0, $bakerySalesCash - $bankedTotal - $expensesTotal);
+    // Use the same CashBalanceService as Sales dashboard
+    $cashService = new \App\Services\CashBalanceService();
+    $balance = $cashService->getAvailableCash($from);
+    $bakeryCashLeft = $balance['available_cash'];
 
 
     return view('admin.dashboard', compact(

@@ -178,7 +178,10 @@ body {
                 <i class="bi bi-clipboard-data"></i> Production Reports
             </a>
             
-            
+            <a href="{{ route('manager.dispatches.financial-report') }}" 
+            class="{{ request()->routeIs('manager.dispatches.financial-report') ? 'active' : '' }}">
+            <i class="bi bi-cash-stack me-2"></i> D - Sales vs Deposits
+            </a>
 
         <!-- Removed any route that does not exist to avoid RouteNotFoundException -->
     </div>

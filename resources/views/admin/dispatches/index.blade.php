@@ -43,14 +43,37 @@
             <td>{{ number_format($d->total_items_sold) }}</td>
             <td>{{ number_format($d->total_sales_value, 0) }}</td>
             <td>{{ number_format($d->cash_received, 0) }}</td>
-            <td>{{ number_format($d->balanceDue, 0) }}</td>
+            
+           @php
+                $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
+                $driverBackDebt = $d->driver?->back_debt ?? 0;
+                $creditSalesValue = $d->items->sum(fn($i) => $i->sold_credit * $i->unit_price);
+                $totalBalanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
+            @endphp
+
+            <td>{{ number_format($totalBalanceDue, 0) }}</td>
+
+
+
+
             <td class="d-flex gap-2">
                 <a href="{{ route('admin.dispatches.show',$d->id) }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-eye"></i> View
                 </a>
-                <a href="{{ route('admin.dispatches.edit',$d->id) }}" class="btn btn-sm btn-outline-warning">
-                    <i class="bi bi-pencil-square"></i> Edit
+                 <a href="{{ route('admin.dispatches.edit',$d->id) }}" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-pencil-square"></i> Update
                 </a>
+                <a href="{{ route('admin.dispatches.history', $d->driver_id) }}" 
+                class="btn btn-sm btn-secondary">
+                    <i class="bi bi-clock-history"></i> History
+                </a>
+                <button class="btn btn-success btn-sm sendWhatsApp"
+                    data-driver="{{ $d->driver->name }}"
+                    data-phone="{{ $d->driver->phone }}"
+                    data-items='@json($d->items)'
+                    data-date="{{ $d->dispatch_date->format('d M Y') }}">
+                    <i class="bi bi-whatsapp"></i> Send to Driver
+                </button>
             </td>
         </tr>
         @empty
@@ -62,3 +85,34 @@
 </table>
 </div>
 @endsection
+@push('scripts')
+<script>
+document.querySelectorAll('.sendWhatsApp').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const driver = btn.dataset.driver;
+        const phone = btn.dataset.phone;
+        const date = btn.dataset.date;
+        const items = JSON.parse(btn.dataset.items);
+
+        let message = `*Bakery Dispatch - ${date}*\n`;
+        message += `Driver: ${driver}\n\n`;
+        message += `Items Dispatched:\n`;
+
+        items.forEach(item => {
+            message += `• ${item.product.replace(/_/g,' ')} - ${item.dispatched_qty} pcs @ ${item.unit_price} = ${item.line_total}\n`;
+        });
+
+        message += `\n✅ Total Sales: UGX ${Number(items.reduce((t, i) => t + i.line_total, 0)).toLocaleString()}\n`;
+        message += `\nThank you & safe delivery! 🚚`;
+
+        // Remove + or 0 if user stores number as 07...
+        let cleanedPhone = phone.replace(/^0/, '256'); // replace starting 0 with country code
+        if (!cleanedPhone.startsWith('256')) cleanedPhone = '256' + cleanedPhone;
+
+        // Encode and open WhatsApp
+        const url = `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    });
+});
+</script>
+@endpush

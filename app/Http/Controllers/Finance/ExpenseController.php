@@ -9,14 +9,38 @@ use Illuminate\Support\Facades\Auth;
 
 class ExpenseController extends Controller
 {
-    public function index()
-    {
-        $expenses = Expense::with('recorder')
-            ->latest('expense_date')
-            ->paginate(15);
+    public function index(Request $request)
+{
+    $query = Expense::with('recorder');
 
-        return view('finance.expenses.index', compact('expenses'));
+    // Apply filters
+    if ($request->has('category') && $request->category != '') {
+        $query->where('category', 'like', '%' . $request->category . '%');
     }
+
+    if ($request->has('start_date') && $request->start_date != '') {
+        $query->where('expense_date', '>=', $request->start_date);
+    }
+
+    if ($request->has('end_date') && $request->end_date != '') {
+        $query->where('expense_date', '<=', $request->end_date);
+    }
+
+    if ($request->has('min_amount') && $request->min_amount != '') {
+        $query->where('amount', '>=', $request->min_amount);
+    }
+
+    if ($request->has('max_amount') && $request->max_amount != '') {
+        $query->where('amount', '<=', $request->max_amount);
+    }
+
+    $expenses = $query->latest('expense_date')->paginate(15);
+
+    // Get unique categories for filter dropdown
+    $categories = Expense::distinct()->pluck('category');
+
+    return view('finance.expenses.index', compact('expenses', 'categories'));
+}
 
     public function create()
     {

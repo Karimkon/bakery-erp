@@ -10,14 +10,30 @@ use Illuminate\Support\Facades\Auth;
 
 class BankDepositController extends Controller
 {
-    public function index()
-    {
-        $deposits = BankDeposit::with(['depositor','recorder'])
-            ->latest('deposit_date')
-            ->paginate(15);
+    public function index(Request $request)
+{
+    $query = BankDeposit::with(['depositor','recorder']);
 
-        return view('finance.deposits.index', compact('deposits'));
+    // Apply filters
+    if ($request->has('depositor_id') && $request->depositor_id != '') {
+        $query->where('user_id', $request->depositor_id);
     }
+
+    if ($request->has('start_date') && $request->start_date != '') {
+        $query->where('deposit_date', '>=', $request->start_date);
+    }
+
+    if ($request->has('end_date') && $request->end_date != '') {
+        $query->where('deposit_date', '<=', $request->end_date);
+    }
+
+    $deposits = $query->latest('deposit_date')->paginate(15);
+    
+    // Get depositors for filter dropdown
+    $depositors = User::whereIn('role',['driver','shop'])->get();
+
+    return view('finance.deposits.index', compact('deposits', 'depositors'));
+}
 
     public function create()
     {

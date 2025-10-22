@@ -9,6 +9,7 @@ use App\Models\DriverExpense;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\BankDeposit;
 use Illuminate\Support\Facades\Storage; 
 
 class ManagerDispatchController extends Controller
@@ -485,6 +486,119 @@ class ManagerDispatchController extends Controller
         ->paginate(10);
 
     return view('manager.dispatches.history', compact('driver', 'dispatches'));
+}
+
+public function financialReport(Request $request)
+{
+    $driverId = $request->input('driver_id');
+    $dateFrom = $request->input('date_from');
+    $dateTo = $request->input('date_to');
+
+    $drivers = User::where('role', 'driver')->orderBy('name')->get();
+    $reportData = [];
+    
+    if ($driverId && $dateFrom && $dateTo) {
+        // Get total sales and ACTUAL cash received from dispatches
+        $salesData = Dispatch::where('driver_id', $driverId)
+            ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
+            ->select(
+                DB::raw('SUM(total_sales_value) as total_sales'),
+                DB::raw('SUM(cash_received) as total_actual_cash_received'),
+                DB::raw('SUM(commission_total) as total_commission'),
+                DB::raw('SUM(expected_cash_after_deductions) as total_expected_after_deductions')
+            )
+            ->first();
+
+        // Get total driver expenses from driver_expenses table
+        $expensesData = DriverExpense::where('driver_id', $driverId)
+            ->whereHas('dispatch', function($query) use ($dateFrom, $dateTo) {
+                $query->whereBetween('dispatch_date', [$dateFrom, $dateTo]);
+            })
+            ->select(DB::raw('SUM(amount) as total_expenses'))
+            ->first();
+
+        // Get total bank deposits
+        $depositsData = BankDeposit::where('user_id', $driverId)
+            ->whereBetween('deposit_date', [$dateFrom, $dateTo])
+            ->select(DB::raw('SUM(amount) as total_deposits'))
+            ->first();
+
+        $driver = User::find($driverId);
+
+        $totalActualCash = $salesData->total_actual_cash_received ?? 0;
+        $totalCommission = $salesData->total_commission ?? 0;
+        $totalExpenses = $expensesData->total_expenses ?? 0;
+        $totalExpectedAfterDeductions = $salesData->total_expected_after_deductions ?? 0;
+        
+        // If expected_after_deductions is not available, calculate it
+        if ($totalExpectedAfterDeductions == 0) {
+            $totalExpectedAfterDeductions = $totalActualCash - $totalCommission - $totalExpenses;
+        }
+        
+        $totalDeposits = $depositsData->total_deposits ?? 0;
+        $shortageExcess = $totalExpectedAfterDeductions - $totalDeposits;
+
+        $reportData = [
+            'driver' => $driver,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'total_sales' => $salesData->total_sales ?? 0,
+            'total_actual_cash_received' => $totalActualCash,
+            'total_commission' => $totalCommission,
+            'total_expenses' => $totalExpenses,
+            'total_expected_after_deductions' => $totalExpectedAfterDeductions,
+            'total_deposits' => $totalDeposits,
+            'shortage_excess' => $shortageExcess
+        ];
+    }
+
+    return view('manager.dispatches.financial-report', compact('drivers', 'reportData'));
+}
+
+public function financialDetails(Request $request, $driverId)
+{
+    $dateFrom = $request->input('date_from', now()->subDays(30)->format('Y-m-d'));
+    $dateTo = $request->input('date_to', now()->format('Y-m-d'));
+
+    $driver = User::findOrFail($driverId);
+    
+    if (!$driver || $driver->role !== 'driver') {
+        return redirect()->back()->with('error', 'Invalid driver selected.');
+    }
+
+    // Get all dispatches in date range
+    $dispatches = Dispatch::where('driver_id', $driverId)
+        ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
+        ->with(['items', 'expenses'])
+        ->orderBy('dispatch_date', 'desc')
+        ->orderBy('dispatch_no', 'desc')
+        ->get();
+
+    // Get all bank deposits in date range
+    $deposits = BankDeposit::where('user_id', $driverId)
+        ->whereBetween('deposit_date', [$dateFrom, $dateTo])
+        ->orderBy('deposit_date', 'desc')
+        ->get();
+
+    // Calculate totals
+    $totals = [
+        'total_sales_value' => $dispatches->sum('total_sales_value'),
+        'total_cash_received' => $dispatches->sum('cash_received'),
+        'total_commission' => $dispatches->sum('commission_total'),
+        'total_expenses' => $dispatches->sum(function($dispatch) {
+            return $dispatch->expenses->sum('amount');
+        }),
+        'total_expected_after_deductions' => $dispatches->sum('expected_cash_after_deductions'),
+        'total_deposits' => $deposits->sum('amount'),
+        'total_balance_due' => $dispatches->sum('balance_due'),
+        'driver_back_debt' => $driver->back_debt,
+    ];
+
+    $totals['calculated_shortage'] = $totals['total_expected_after_deductions'] - $totals['total_deposits'];
+
+    return view('manager.dispatches.financial-details', compact(
+        'driver', 'dispatches', 'deposits', 'totals', 'dateFrom', 'dateTo'
+    ));
 }
 
 }

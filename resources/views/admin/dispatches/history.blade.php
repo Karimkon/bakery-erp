@@ -1,4 +1,4 @@
-@extends('manager.layouts.app')
+@extends('admin.layouts.app')
 @section('title', 'Dispatch History - ' . $driver->name)
 
 @section('content')
@@ -7,12 +7,12 @@
         <i class="bi bi-clock-history me-2"></i> 
         Dispatch History: <strong class="text-primary">{{ $driver->name }}</strong>
     </h4>
-    <a href="{{ route('manager.dispatches.index') }}" class="btn btn-secondary">
+    <a href="{{ route('admin.dispatches.index') }}" class="btn btn-secondary">
         <i class="bi bi-arrow-left"></i> Back to All Drivers
     </a>
 
-    {{-- In manager/dispatches/history.blade.php --}}
-<a href="{{ route('manager.dispatches.financial-details', $driver->id) }}" 
+    {{-- In admin/dispatches/history.blade.php --}}
+<a href="{{ route('admin.dispatches.financial-details', $driver->id) }}" 
    class="btn btn-info btn-sm">
     <i class="bi bi-calculator me-1"></i> Financial Details
 </a>
@@ -81,11 +81,11 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ route('manager.dispatches.show', $dispatch->id) }}" 
+                                    <a href="{{ route('admin.dispatches.show', $dispatch->id) }}" 
                                        class="btn btn-info" title="View Details">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{{ route('manager.dispatches.edit', $dispatch->id) }}" 
+                                    <a href="{{ route('admin.dispatches.edit', $dispatch->id) }}" 
                                        class="btn btn-warning" title="Edit Dispatch">
                                         <i class="bi bi-pencil"></i>
                                     </a>
