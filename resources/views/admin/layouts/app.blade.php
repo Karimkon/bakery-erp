@@ -331,6 +331,10 @@ body {
                         <a href="{{ route('admin.dispatches.index') }}" class="{{ request()->routeIs('admin.dispatches.*') ? 'active' : '' }}">
                             <i class="bi bi-list-check"></i> Driver Dispatches
                         </a>
+                        <a href="{{ route('admin.dispatches.financial-report') }}" 
+                            class="{{ request()->routeIs('admin.dispatches.financial-report') ? 'active' : '' }}">
+                        <i class="bi bi-cash-stack me-2"></i> D - Sales vs Deposits
+                        </a>
                         <a href="{{ route('admin.shop-dispatch.index') }}" class="{{ request()->routeIs('admin.shop-dispatch.*') ? 'active' : '' }}">
                             <i class="bi bi-shop"></i> Shop Dispatch
                         </a>

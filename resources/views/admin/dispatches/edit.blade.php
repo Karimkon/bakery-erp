@@ -62,56 +62,59 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($products as $product => $price)
-                    @php
-                        $row = $dispatch->items->firstWhere('product', $product);
-                        $opening    = (int) ($openings[$product] ?? 0);
-                        $dispatched = (int) ($row?->dispatched_qty ?? 0);
-                        $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
-                        $soldCredit = (int) old("items.$product.sold_credit", $row?->sold_credit ?? 0);
-                        $commission = (float) ($row?->commission ?? 0);
-                        $maxSold = $opening + $dispatched;
-                        $remaining = $maxSold - ($soldCash + $soldCredit);
-                    @endphp
-                    <tr data-product="{{ $product }}" data-price="{{ $price }}" data-sold-credit="{{ $soldCredit }}">
-                        <td>
-                            <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
-                            <div class="text-muted small">UGX {{ number_format($price) }}</div>
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm opening-stock" 
-                                   data-opening="{{ $opening }}"
-                                   value="{{ $opening }}" readonly tabindex="-1">
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm dispatched-qty" 
-                                   data-dispatched="{{ $dispatched }}"
-                                   value="{{ $dispatched }}" readonly tabindex="-1">
-                        </td>
-                        <td class="text-center">
-                            <span class="remaining-col badge bg-info">{{ $remaining }}</span>
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm sold-cash"
-                                   name="items[{{ $product }}][sold_cash]"
-                                   value="{{ $soldCash }}"
-                                   min="0" max="{{ $maxSold }}" 
-                                   data-max="{{ $maxSold }}">
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm sold-credit"
-                                   name="items[{{ $product }}][sold_credit]"
-                                   value="{{ $soldCredit }}"
-                                   min="0" max="{{ $maxSold }}" 
-                                   data-max="{{ $maxSold }}">
-                        </td>
-                        <td class="text-center">
-                            <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
-                        </td>
-                        <input type="hidden" class="commission-value" value="{{ $commission }}">
-                    </tr>
-                @endforeach
-            </tbody>
+    @foreach($products as $product => $price)
+        @php
+            $row = $dispatch->items->firstWhere('product', $product);
+            $opening    = (int) ($openings[$product] ?? 0);
+            $dispatched = (int) ($row?->dispatched_qty ?? 0);
+            $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
+            $soldCredit = (int) old("items.$product.sold_credit", $row?->sold_credit ?? 0);
+            $commission = (float) ($row?->commission ?? 0);
+            $maxSold = $opening + $dispatched;
+            $remaining = $maxSold - ($soldCash + $soldCredit);
+        @endphp
+        <tr data-product="{{ $product }}" data-price="{{ $price }}" data-sold-credit="{{ $soldCredit }}">
+            <td>
+                <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
+                <div class="text-muted small">UGX {{ number_format($price) }}</div>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm opening-stock" 
+                       data-opening="{{ $opening }}"
+                       value="{{ $opening }}" readonly tabindex="-1">
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm dispatched-qty" 
+                       name="items[{{ $product }}][dispatched_qty]"
+                       data-original-dispatched="{{ $dispatched }}"
+                       value="{{ $dispatched }}" 
+                       min="0">
+            </td>
+            <td class="text-center">
+                <span class="remaining-col badge bg-info">{{ $remaining }}</span>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm sold-cash"
+                       name="items[{{ $product }}][sold_cash]"
+                       value="{{ $soldCash }}"
+                       min="0" max="{{ $maxSold }}" 
+                       data-max="{{ $maxSold }}">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm sold-credit"
+                       name="items[{{ $product }}][sold_credit]"
+                       value="{{ $soldCredit }}"
+                       min="0" max="{{ $maxSold }}" 
+                       data-max="{{ $maxSold }}">
+            </td>
+            <td class="text-center">
+                <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
+            </td>
+            <input type="hidden" class="commission-value" value="{{ $commission }}">
+        </tr>
+    @endforeach
+</tbody>
         </table>
     </div>
 
@@ -441,6 +444,10 @@ $(function () {
 
         const remaining = maxAvailable - (soldCash + soldCredit);
         $row.find('.remaining-col').text(remaining);
+
+        // Update max attribute for sold fields
+        $row.find('.sold-cash').attr('max', maxAvailable);
+        $row.find('.sold-credit').attr('max', maxAvailable);
     }
 
     // Recompute all commissions
@@ -554,6 +561,14 @@ $(function () {
         $('#total_items_sold').val(totalItemsSold);
         $('#driver_expenses_total').val(driverExpenses.toFixed(2));
     }
+
+    // NEW: Add event handler for dispatched quantity changes
+    $('#items-table').on('input change', '.dispatched-qty', function() {
+        const $row = $(this).closest('tr');
+        recomputeRow($row);
+        recomputeCommissions();
+        recomputeTotals();
+    });
 
     // Event handlers
     $('#items-table').on('input change', '.sold-cash, .sold-credit', function() {

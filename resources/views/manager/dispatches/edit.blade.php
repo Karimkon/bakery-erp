@@ -46,7 +46,6 @@
     <br>
     <button type="button" id="clear-signature" class="btn btn-secondary btn-sm mt-2">Clear</button>
     <input type="hidden" name="driver_signature" id="driver_signature" value="{{ old('driver_signature', $dispatch->driver_signature) }}">
-    <input type="hidden" id="original_back_debt" value="{{ old('back_debt', $dispatch->driver->back_debt) }}">
 
     <div class="table-responsive mt-3">
         <table class="table table-sm table-bordered align-middle" id="items-table">
@@ -111,7 +110,6 @@
     <input type="hidden" name="total_sales_value" id="total_sales_value">
     <input type="hidden" name="total_items_sold" id="total_items_sold">
     <input type="hidden" name="driver_expenses" id="driver_expenses_total">
-    <input type="hidden" name="back_debt_hidden" id="back_debt_hidden" value="{{ old('back_debt', $dispatch->driver->back_debt) }}">
 
     <hr class="my-4">
 
@@ -257,16 +255,41 @@
 
     </div>
 
-  <div class="row g-3 mt-3">
-    <div class="col-md-4">
-        <label class="form-label fw-bold">Back Debt (UGX)</label>
-        <div class="input-group">
-            <input type="number" step="0.01" name="back_debt" id="back_debt_input"
-                   class="form-control form-control-lg"
-                   value="{{ old('back_debt', $dispatch->driver->back_debt) }}" readonly>
-            <button type="button" id="unlock_back_debt" class="btn btn-outline-secondary">Unlock</button>
+  {{-- Remove the manual back debt input and replace with: --}}
+
+<div class="row g-3 mt-3">
+    <div class="col-md-6">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">💰 Automated Back Debt Tracking</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted">Current Back Debt</small>
+                        <h5 class="text-primary" id="current_back_debt_display">
+                            {{ number_format($dispatch->driver->back_debt, 0) }} UGX
+                        </h5>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Status</small>
+                        <div>
+                            @if($dispatch->driver->back_debt > 0)
+                                <span class="badge bg-danger">Driver Owes</span>
+                            @elseif($dispatch->driver->back_debt < 0)
+                                <span class="badge bg-success">Bakery Owes</span>
+                            @else
+                                <span class="badge bg-secondary">Settled</span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    <i class="bi bi-info-circle"></i>
+                    Back debt updates automatically when you change cash amounts
+                </small>
+            </div>
         </div>
-        <small class="text-muted">Adjust only if you are manually reconciling debt.</small>
     </div>
 </div>
 
@@ -306,29 +329,6 @@ if (!currentDriverName) {
 }
 
 
-    // Back debt handling
-    $('#unlock_back_debt').on('click', function() {
-        const $input = $('#back_debt_input');
-        const isReadonly = $input.prop('readonly');
-        
-        if (isReadonly) {
-            $input.prop('readonly', false).focus();
-            $(this).text('Lock').removeClass('btn-outline-secondary').addClass('btn-outline-warning');
-        } else {
-            $input.prop('readonly', true);
-            $(this).text('Unlock').removeClass('btn-outline-warning').addClass('btn-outline-secondary');
-            recomputeTotals();
-        }
-    });
-
-    // Update totals when back debt is manually changed
-    $('#back_debt_input').on('input', function() {
-        if (!$(this).prop('readonly')) {
-            // Sync with hidden field
-            $('#back_debt_hidden').val($(this).val());
-            recomputeTotals();
-        }
-    });
 
     if (typeof $.fn.select2 !== 'undefined') {
         $('.select2').select2({ placeholder: 'Search driver' });
@@ -542,15 +542,12 @@ if (!currentDriverName) {
         // Get current back debt value from input (manual adjustment only)
         const currentBackDebt = parseFloatSafe($('#back_debt_input').val());
 
-        // Balance due = remaining inventory + credit sales + current back debt
-        const balanceDue = remainingInventoryValue + creditSalesValue + currentBackDebt;
 
         // Update display fields
         $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
         $('#commission_total_display').val(formatCurrency(commissionTotal));
         $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
         $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
-        $('#balance_due_display').val(formatCurrency(balanceDue));
 
         // Update hidden form fields
         $('#commission_total').val(commissionTotal.toFixed(2));

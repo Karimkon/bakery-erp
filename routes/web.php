@@ -293,6 +293,8 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
         ->name('dispatches.financial-report');
     Route::get('dispatches/financial-details/{driverId}', [\App\Http\Controllers\Manager\ManagerDispatchController::class, 'financialDetails'])
     ->name('dispatches.financial-details');
+     Route::get('dispatches/back-debt-history/{driverId}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'backDebtHistory'])
+        ->name('dispatches.back-debt-history');
 
     // ✅ Resource route AFTER
     Route::resource('dispatches', App\Http\Controllers\Manager\ManagerDispatchController::class);

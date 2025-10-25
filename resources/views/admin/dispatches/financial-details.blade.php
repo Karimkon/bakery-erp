@@ -113,12 +113,27 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div>
-                            <small class="text-muted d-block">Current Back Debt</small>
-                            <h4 class="text-secondary mb-0">{{ number_format($totals['driver_back_debt'], 0) }}</h4>
-                            <small class="text-muted">UGX</small>
-                        </div>
-                    </div>
+    <div>
+        <small class="text-muted d-block">Current Back Debt</small>
+        <h4 class="text-{{ $totals['driver_back_debt'] > 0 ? 'danger' : ($totals['driver_back_debt'] < 0 ? 'success' : 'secondary') }} mb-0">
+            {{ number_format(abs($totals['driver_back_debt']), 0) }}
+        </h4>
+        <div class="mt-1">
+            <span class="badge bg-{{ $totals['driver_back_debt'] > 0 ? 'danger' : ($totals['driver_back_debt'] < 0 ? 'success' : 'secondary') }}">
+                @if($totals['driver_back_debt'] > 0) Driver Owes
+                @elseif($totals['driver_back_debt'] < 0) Bakery Owes  
+                @else Settled @endif
+            </span>
+        </div>
+        <div class="mt-2">
+            <a href="{{ route('manager.dispatches.back-debt-history', $driver->id) }}" 
+               class="btn btn-sm btn-outline-info w-100" 
+               title="View Back Debt Transaction History">
+                <i class="bi bi-clock-history me-1"></i> View History
+            </a>
+        </div>
+    </div>
+</div>
                 </div>
             </div>
         </div>

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\BankDeposit;
 use Illuminate\Support\Facades\Storage; 
+use App\Models\DriverBackDebtTransaction;
 
 class ManagerDispatchController extends Controller
 {
@@ -194,7 +195,7 @@ class ManagerDispatchController extends Controller
         return view('manager.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
     }
 
-    public function update(Request $request, $id)
+ public function update(Request $request, $id)
 {
     $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
     $products = config('bakery_products');
@@ -209,47 +210,18 @@ class ManagerDispatchController extends Controller
         'expenses.*.amount' => ['required_with:expenses.*.expense_type', 'numeric', 'min:0'],
         'expenses.*.description' => ['nullable', 'string', 'max:500'],
         'expenses.*.receipt' => ['nullable', 'image', 'max:2048'],
-        'back_debt' => ['nullable', 'numeric', 'min:0'],
-        'back_debt_hidden' => ['nullable', 'numeric', 'min:0'],
-    ], [
-        'cash_received.min' => 'Cash received cannot be negative.',
-        'expenses.*.amount.min' => 'Expense amounts cannot be negative.',
     ]);
 
-    // Debug: Log the request data for back debt
-    \Log::info("Back debt request data:", [
-        'back_debt' => $request->input('back_debt'),
-        'back_debt_hidden' => $request->input('back_debt_hidden'),
-        'driver_current_back_debt' => $dispatch->driver->back_debt
-    ]);
+    $backDebtAdjustment = 0;
+    $successMessage = 'Dispatch updated successfully.';
 
-    DB::transaction(function () use ($dispatch, $request, $products) {
-        // ============================================
-        // STEP 1: Update Driver's Back Debt if changed
-        // ============================================
-        $driver = User::find($dispatch->driver_id); // Get fresh instance
-        $newBackDebt = (float) $request->input('back_debt', $request->input('back_debt_hidden', $driver->back_debt));
+    DB::transaction(function () use ($dispatch, $request, $products, &$backDebtAdjustment, &$successMessage) {
+        // Store OLD values for back debt calculation
+        $oldCashReceived = $dispatch->cash_received;
+        $oldExpectedAfterDeductions = $dispatch->expected_cash_after_deductions;
+        $oldDriverBackDebt = $dispatch->driver->back_debt;
 
-        // Always update back debt with the form value
-        $driver->back_debt = $newBackDebt;
-        $driver->save();
-
-        \Log::info("Back debt saved for driver {$driver->id}: {$newBackDebt}");
-        
-        // Verify the save was successful
-        $driver->refresh();
-        if ($driver->back_debt != $newBackDebt) {
-            \Log::error("Failed to save back debt for driver {$driver->id}. Expected: {$newBackDebt}, Actual: {$driver->back_debt}");
-            throw new \Exception("Failed to save back debt for driver {$driver->id}");
-        }
-
-        // Reload the driver relationship to get updated back debt
-        $dispatch->load('driver');
-        $driver = $dispatch->driver;
-
-        // ============================================
-        // STEP 2: Update Dispatch Items
-        // ============================================
+        // Calculate NEW financial values
         $totalItemsSold = 0;
         $totalSalesValue = 0;
         $calculatedCashReceived = 0;
@@ -263,7 +235,7 @@ class ManagerDispatchController extends Controller
             $item = $dispatch->items->firstWhere('product', $product);
             if (!$item) continue;
 
-            $newSoldCash   = (int) ($data['sold_cash'] ?? 0);
+            $newSoldCash = (int) ($data['sold_cash'] ?? 0);
             $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
             $maxSold = $item->opening_stock + $item->dispatched_qty;
             $totalSold = $newSoldCash + $newSoldCredit;
@@ -283,132 +255,233 @@ class ManagerDispatchController extends Controller
             $remainingInventoryValue += $remaining * $unitPrice;
 
             $itemsForCommission[] = [
-                'product'        => $product,
-                'opening_stock'  => $item->opening_stock,
+                'product' => $product,
+                'opening_stock' => $item->opening_stock,
                 'dispatched_qty' => $item->dispatched_qty,
-                'sold_qty'       => $totalSold,
-                'unit_price'     => $unitPrice,
+                'sold_qty' => $totalSold,
+                'unit_price' => $unitPrice,
             ];
 
             $item->update([
-                'sold_cash'     => $newSoldCash,
-                'sold_credit'   => $newSoldCredit,
-                'sold_qty'      => $totalSold,
+                'sold_cash' => $newSoldCash,
+                'sold_credit' => $newSoldCredit,
+                'sold_qty' => $totalSold,
                 'remaining_qty' => $remaining,
-                'line_total'    => $lineTotal,
+                'line_total' => $lineTotal,
             ]);
         }
 
-        // ... rest of your code remains the same ...
-        // ============================================
-        // STEP 3: Calculate Commissions
-        // ============================================
+        // Calculate commissions
         $commissionTotal = $this->computeCommissionStuff($itemsForCommission, $totalSalesValue);
 
-        foreach ($itemsForCommission as $itemData) {
-            $item = $dispatch->items->firstWhere('product', $itemData['product']);
-            if ($item) {
-                $item->update(['commission' => $itemData['commission'] ?? 0]);
-            }
-        }
+        // Process expenses
+        $totalDriverExpenses = $this->processExpenses($request, $dispatch);
 
-        // ============================================
-        // STEP 4: Process Driver Expenses
-        // ============================================
-        $totalDriverExpenses = 0;
-        $existingExpenseIds = [];
-
-        if ($request->has('expenses') && is_array($request->expenses)) {
-            foreach ($request->expenses as $expenseData) {
-                if (empty($expenseData['expense_type']) || empty($expenseData['amount'])) {
-                    continue;
-                }
-
-                $amount = (float) $expenseData['amount'];
-                $totalDriverExpenses += $amount;
-
-                $expenseRecord = [
-                    'dispatch_id'   => $dispatch->id,
-                    'driver_id'     => $dispatch->driver_id,
-                    'expense_type'  => $expenseData['expense_type'],
-                    'amount'        => $amount,
-                    'description'   => $expenseData['description'] ?? null,
-                ];
-
-                if (isset($expenseData['receipt']) && $expenseData['receipt']) {
-                    $file = $expenseData['receipt'];
-                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                    $path = $file->storeAs('receipts', $filename, 'public');
-                    $expenseRecord['receipt_image'] = $path;
-                }
-
-                if (!empty($expenseData['id'])) {
-                    $expense = DriverExpense::find($expenseData['id']);
-                    if ($expense && $expense->dispatch_id == $dispatch->id) {
-                        if (isset($expenseRecord['receipt_image']) && $expense->receipt_image) {
-                            Storage::disk('public')->delete($expense->receipt_image);
-                        }
-                        $expense->update($expenseRecord);
-                        $existingExpenseIds[] = $expense->id;
-                    }
-                } else {
-                    $newExpense = DriverExpense::create($expenseRecord);
-                    $existingExpenseIds[] = $newExpense->id;
-                }
-            }
-        }
-
-        $dispatch->expenses()
-            ->whereNotIn('id', $existingExpenseIds)
-            ->each(function ($expense) {
-                if ($expense->receipt_image) {
-                    Storage::disk('public')->delete($expense->receipt_image);
-                }
-                $expense->delete();
-            });
-
-        // ============================================
-        // STEP 5: Financial Calculations
-        // ============================================
+        // Calculate expected cash after deductions
         $expectedAfterDeductions = $calculatedCashReceived - $commissionTotal - $totalDriverExpenses;
-        
-        // Get actual cash from form - if empty, use expected
-        $actualCashInput = $request->input('cash_received');
-        
-        if ($actualCashInput === null || $actualCashInput === '' || (float)$actualCashInput == 0) {
-            $actualCashReceived = $expectedAfterDeductions;
-        } else {
-            $actualCashReceived = (float) $actualCashInput;
+
+        // Get actual cash received
+        $actualCashReceived = $this->getActualCashReceived($request, $expectedAfterDeductions, $dispatch);
+
+        // 🎯 CHECK if back debt adjustment is actually needed
+        if ($this->shouldAdjustBackDebt(
+            $oldCashReceived, 
+            $actualCashReceived, 
+            $oldExpectedAfterDeductions, 
+            $expectedAfterDeductions
+        )) {
+            // 🎯 AUTOMATED BACK DEBT CALCULATION
+            $backDebtAdjustment = $this->calculateBackDebtAdjustment(
+                $oldCashReceived,
+                $oldExpectedAfterDeductions,
+                $actualCashReceived,
+                $expectedAfterDeductions,
+            );
+
+            if ($backDebtAdjustment != 0) {
+                $successMessage = 'Dispatch updated successfully. Back debt automatically adjusted.';
+            }
         }
 
-        // ============================================
-        // STEP 6: Calculate Balance Due
-        // ============================================
-        $balanceDue = $remainingInventoryValue + $creditSalesValue + $driver->back_debt;
+        // Update driver's back debt ONLY if adjustment is needed
+        $driver = User::find($dispatch->driver_id);
+        $newBackDebt = $oldDriverBackDebt + $backDebtAdjustment;
+        
+        if ($backDebtAdjustment != 0) {
+            $driver->back_debt = $newBackDebt;
+            $driver->save();
 
-        // ============================================
-        // STEP 7: Update Dispatch Record
-        // ============================================
+            // Record back debt transaction
+            $this->recordBackDebtTransaction(
+                $driver->id,
+                $dispatch->id,
+                $oldDriverBackDebt,
+                $backDebtAdjustment,
+                $newBackDebt,
+                'dispatch_update',
+                "Dispatch #{$dispatch->dispatch_no} adjustment"
+            );
+
+            \Log::info("Back debt automatically adjusted", [
+                'driver_id' => $driver->id,
+                'dispatch_id' => $dispatch->id,
+                'old_back_debt' => $oldDriverBackDebt,
+                'adjustment' => $backDebtAdjustment,
+                'new_back_debt' => $newBackDebt
+            ]);
+        }
+
+        // Calculate final balance due
+        $balanceDue = $remainingInventoryValue + $creditSalesValue + $newBackDebt;
+
+        // Update dispatch record
         $dispatch->update([
-            'notes'                          => $request->notes,
-            'driver_signature'               => $request->driver_signature,
-            'total_items_sold'               => $totalItemsSold,
-            'total_sales_value'              => $totalSalesValue,
-            'commission_total'               => $commissionTotal,
-            'driver_expenses'                => $totalDriverExpenses,
-            'cash_received'                  => $actualCashReceived,
+            'notes' => $request->notes,
+            'driver_signature' => $request->driver_signature,
+            'total_items_sold' => $totalItemsSold,
+            'total_sales_value' => $totalSalesValue,
+            'commission_total' => $commissionTotal,
+            'driver_expenses' => $totalDriverExpenses,
+            'cash_received' => $actualCashReceived,
             'expected_cash_after_deductions' => $expectedAfterDeductions,
-            'balance_due'                    => $balanceDue,
+            'balance_due' => $balanceDue,
         ]);
-
-        // Debug: Log the back debt value for verification
-        \Log::info("Final back debt for driver {$driver->id}: {$driver->back_debt}");
     });
 
-    return redirect()->route('manager.dispatches.index')
-                    ->with('success', 'Dispatch updated successfully.');
+    return redirect()->route('manager.dispatches.index')->with('success', $successMessage);
 }
 
+/**
+ * Calculate back debt adjustment based on cash differences
+ */
+protected function calculateBackDebtAdjustment(
+    $oldCashReceived, 
+    $oldExpectedAfterDeductions, 
+    $newActualCashReceived, 
+    $newExpectedAfterDeductions
+) {
+    // Calculate what the driver SHOULD have paid vs what they ACTUALLY paid
+    $oldNetPayment = $oldCashReceived - $oldExpectedAfterDeductions;
+    $newNetPayment = $newActualCashReceived - $newExpectedAfterDeductions;
+    
+    // 🎯 CORE LOGIC: 
+    // If new payment is BETTER (more positive or less negative), back debt should DECREASE
+    // If new payment is WORSE (less positive or more negative), back debt should INCREASE
+    $adjustment = $oldNetPayment - $newNetPayment;
+    
+    return $adjustment;
+}
+
+/**
+ * Record back debt transaction for audit trail
+ */
+protected function recordBackDebtTransaction(
+    $driverId, 
+    $dispatchId, 
+    $previousBalance, 
+    $amountChanged, 
+    $newBalance, 
+    $transactionType, 
+    $description
+) {
+    \App\Models\DriverBackDebtTransaction::create([
+        'driver_id' => $driverId,
+        'dispatch_id' => $dispatchId,
+        'previous_balance' => $previousBalance,
+        'amount_changed' => $amountChanged,
+        'new_balance' => $newBalance,
+        'transaction_type' => $transactionType,
+        'description' => $description,
+        'recorded_by' => auth()->id(),
+    ]);
+}
+
+/**
+ * Process expenses (extracted from your existing code)
+ */
+protected function processExpenses(Request $request, Dispatch $dispatch)
+{
+    $totalDriverExpenses = 0;
+    $existingExpenseIds = [];
+
+    if ($request->has('expenses') && is_array($request->expenses)) {
+        foreach ($request->expenses as $expenseData) {
+            if (empty($expenseData['expense_type']) || empty($expenseData['amount'])) {
+                continue;
+            }
+
+            $amount = (float) $expenseData['amount'];
+            $totalDriverExpenses += $amount;
+
+            $expenseRecord = [
+                'dispatch_id' => $dispatch->id,
+                'driver_id' => $dispatch->driver_id,
+                'expense_type' => $expenseData['expense_type'],
+                'amount' => $amount,
+                'description' => $expenseData['description'] ?? null,
+            ];
+
+            // Handle receipt upload (your existing code)
+            if (isset($expenseData['receipt']) && $expenseData['receipt']) {
+                $file = $expenseData['receipt'];
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('receipts', $filename, 'public');
+                $expenseRecord['receipt_image'] = $path;
+            }
+
+            if (!empty($expenseData['id'])) {
+                $expense = DriverExpense::find($expenseData['id']);
+                if ($expense && $expense->dispatch_id == $dispatch->id) {
+                    if (isset($expenseRecord['receipt_image']) && $expense->receipt_image) {
+                        Storage::disk('public')->delete($expense->receipt_image);
+                    }
+                    $expense->update($expenseRecord);
+                    $existingExpenseIds[] = $expense->id;
+                }
+            } else {
+                $newExpense = DriverExpense::create($expenseRecord);
+                $existingExpenseIds[] = $newExpense->id;
+            }
+        }
+    }
+
+    // Delete removed expenses
+    $dispatch->expenses()
+        ->whereNotIn('id', $existingExpenseIds)
+        ->each(function ($expense) {
+            if ($expense->receipt_image) {
+                Storage::disk('public')->delete($expense->receipt_image);
+            }
+            $expense->delete();
+        });
+
+    return $totalDriverExpenses;
+}
+
+
+
+/**
+ * ✅ SIMPLE: No restrictions on cash received - trust the manager
+ */
+protected function getActualCashReceived(Request $request, $expectedAfterDeductions, $dispatch)
+{
+    $actualCashInput = $request->input('cash_received');
+    
+    // If no cash entered, use expected amount
+    if ($actualCashInput === null || $actualCashInput === '' || (float)$actualCashInput == 0) {
+        return $expectedAfterDeductions;
+    }
+    
+    $actualCashReceived = (float) $actualCashInput;
+    
+    // Only basic validation - no negative amounts
+    if ($actualCashReceived < 0) {
+        throw new \Exception("Cash received cannot be negative");
+    }
+    
+    // ✅ No upper limit - trust the manager knows what they're doing
+    return $actualCashReceived;
+}
     protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
     {
         $products = array_keys(config('bakery_products'));
@@ -599,6 +672,30 @@ public function financialDetails(Request $request, $driverId)
     return view('manager.dispatches.financial-details', compact(
         'driver', 'dispatches', 'deposits', 'totals', 'dateFrom', 'dateTo'
     ));
+}
+
+/**
+ * ✅ Validate if back debt adjustment is actually needed
+ */
+protected function shouldAdjustBackDebt($oldCashReceived, $newActualCashReceived, $oldExpectedAfterDeductions, $newExpectedAfterDeductions)
+{
+    // If cash received didn't change AND expected amount didn't change significantly, no adjustment needed
+    $cashChanged = abs($oldCashReceived - $newActualCashReceived) > 1; // More than 1 UGX difference
+    $expectedChanged = abs($oldExpectedAfterDeductions - $newExpectedAfterDeductions) > 1;
+    
+    // Only adjust if cash received changed OR expected amount changed significantly
+    return $cashChanged || $expectedChanged;
+}
+
+public function backDebtHistory($driverId)
+{
+    $driver = User::findOrFail($driverId);
+    $history = \App\Models\DriverBackDebtTransaction::with(['dispatch', 'recordedBy'])
+        ->where('driver_id', $driverId)
+        ->orderBy('created_at', 'desc')
+        ->paginate(20);
+
+    return view('manager.dispatches.back_debt_history', compact('driver', 'history'));
 }
 
 }

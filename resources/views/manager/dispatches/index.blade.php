@@ -30,6 +30,7 @@
             <th>Items Sold</th>
             <th>Total Sales (UGX)</th>
             <th>Cash Received (UGX)</th>
+            <th>Back Debt</th>
             <th>Balance Due (UGX)</th>
             <th>Action</th>
         </tr>
@@ -43,6 +44,18 @@
             <td>{{ number_format($d->total_items_sold) }}</td>
             <td>{{ number_format($d->total_sales_value, 0) }}</td>
             <td>{{ number_format($d->cash_received, 0) }}</td>
+            <td>
+    <div class="d-flex gap-1">
+        <span class="badge @if($d->driver->back_debt > 0) bg-danger @elseif($d->driver->back_debt < 0) bg-success @else bg-secondary @endif">
+            {{ number_format($d->driver->back_debt, 0) }} UGX
+        </span>
+        <a href="{{ route('manager.dispatches.back-debt-history', $d->driver->id) }}" 
+           class="btn btn-sm btn-outline-info" 
+           title="View Back Debt History">
+            <i class="bi bi-clock-history"></i>
+        </a>
+    </div>
+</td>
             
            @php
                 $remainingInventoryValue = $d->items->sum(fn($i) => $i->remaining_qty * $i->unit_price);
