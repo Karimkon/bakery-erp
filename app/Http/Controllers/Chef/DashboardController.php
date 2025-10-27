@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+     public function index()
     {
         $userId = Auth::id();
         $today = Carbon::today();
@@ -24,62 +24,55 @@ class DashboardController extends Controller
         $myValue = Production::where('user_id', $userId)->sum('total_value');
         $myVariance = Production::where('user_id', $userId)->where('has_variance', true)->count();
 
-        // Get chef target and calculate progress
+        // Get chef target
         $chefTarget = ChefTarget::where('chef_id', $userId)->first();
+        
+        // ✅ FIXED: Calculate today's production correctly
         $todayProduction = Production::where('user_id', $userId)
             ->whereDate('production_date', $today)
             ->sum('total_value');
 
-        // Calculate progress
-        $progressPercentage = 0;
-        $dailyRemaining = 0;
-        if ($chefTarget && $chefTarget->daily_target > 0) {
-            $progressPercentage = round(($todayProduction / $chefTarget->daily_target) * 100, 2);
-            $dailyRemaining = max(0, $chefTarget->daily_target - $todayProduction);
+        // ✅ FIXED: Update ALL missing progress records, not just today
+        if ($chefTarget) {
+            $this->updateAllMissingProgress($chefTarget);
         }
 
-        // Save daily progress
-        if ($chefTarget) {
-            $this->saveChefDailyProgress($chefTarget, $todayProduction);
-        }
+        // Recalculate today's progress after update
+        $todayProgress = ChefProgressDaily::where('chef_id', $userId)
+            ->whereDate('progress_date', $today)
+            ->first();
+            
+        $progressPercentage = $todayProgress ? $todayProgress->progress_percentage : 0;
+        $dailyRemaining = $todayProgress ? max(0, $chefTarget->daily_target - $todayProgress->achieved_amount) : $chefTarget->daily_target;
 
         // Chart data
-        $chartData = Production::where('user_id', $userId)
-            ->selectRaw('production_date, SUM(total_value) as value')
-            ->groupBy('production_date')
-            ->orderBy('production_date', 'asc')
-            ->where('production_date', '>=', Carbon::now()->subDays(7))
-            ->pluck('value', 'production_date');
+        $chartData = $this->getChartData($userId);
 
         return view('chef.dashboard', compact(
-            'myTotal', 
-            'myToday', 
-            'myValue', 
-            'myVariance', 
-            'chartData',
-            'chefTarget',
-            'todayProduction',
-            'progressPercentage',
-            'dailyRemaining'
+            'myTotal', 'myToday', 'myValue', 'myVariance', 
+            'chartData', 'chefTarget', 'todayProduction',
+            'progressPercentage', 'dailyRemaining'
         ));
     }
-
-    private function saveChefDailyProgress($chefTarget, $achievedAmount)
+       private function saveChefDailyProgress($chefTarget, $achievedAmount, $date = null)
     {
         try {
-            $today = Carbon::today();
+            $date = $date ? Carbon::parse($date) : Carbon::today();
             
-            $progressPercentage = $chefTarget->daily_target > 0 
-                ? round(($achievedAmount / $chefTarget->daily_target) * 100, 2) 
+            // ✅ USE ACTUAL TARGET from chef_targets table
+            $targetAmount = $chefTarget->daily_target;
+            
+            $progressPercentage = $targetAmount > 0 
+                ? round(($achievedAmount / $targetAmount) * 100, 2) 
                 : 0;
 
             ChefProgressDaily::updateOrCreate(
                 [
                     'chef_id' => $chefTarget->chef_id,
-                    'progress_date' => $today->format('Y-m-d')
+                    'progress_date' => $date->format('Y-m-d')
                 ],
                 [
-                    'target_amount' => $chefTarget->daily_target,
+                    'target_amount' => $targetAmount, // ✅ Correct target
                     'achieved_amount' => $achievedAmount,
                     'progress_percentage' => $progressPercentage
                 ]

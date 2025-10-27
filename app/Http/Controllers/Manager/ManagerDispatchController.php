@@ -195,161 +195,190 @@ class ManagerDispatchController extends Controller
         return view('manager.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
     }
 
- public function update(Request $request, $id)
-{
-    $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
-    $products = config('bakery_products');
 
-    $request->validate([
-        'items' => ['required', 'array'],
-        'notes' => ['nullable', 'string'],
-        'cash_received' => ['nullable', 'numeric', 'min:0'],
-        'driver_signature' => ['nullable', 'string'],
-        'expenses' => ['nullable', 'array'],
-        'expenses.*.expense_type' => ['required_with:expenses.*.amount', 'string'],
-        'expenses.*.amount' => ['required_with:expenses.*.expense_type', 'numeric', 'min:0'],
-        'expenses.*.description' => ['nullable', 'string', 'max:500'],
-        'expenses.*.receipt' => ['nullable', 'image', 'max:2048'],
-    ]);
+    /**
+     * ✅ NEW: List of drivers who should NEVER have back debt
+     */
+    protected function getExcludedBackDebtDrivers()
+    {
+        return [
+            'Ariah Nabadda',
+            'Nakato Kampala'
+            // Add more names here if needed
+        ];
+    }
 
-    $backDebtAdjustment = 0;
-    $successMessage = 'Dispatch updated successfully.';
-
-    DB::transaction(function () use ($dispatch, $request, $products, &$backDebtAdjustment, &$successMessage) {
-        // Store OLD values for back debt calculation
-        $oldCashReceived = $dispatch->cash_received;
-        $oldExpectedAfterDeductions = $dispatch->expected_cash_after_deductions;
-        $oldDriverBackDebt = $dispatch->driver->back_debt;
-
-        // Calculate NEW financial values
-        $totalItemsSold = 0;
-        $totalSalesValue = 0;
-        $calculatedCashReceived = 0;
-        $creditSalesValue = 0;
-        $remainingInventoryValue = 0;
-        $itemsForCommission = [];
-
-        foreach ($request->items as $product => $data) {
-            if (!array_key_exists($product, $products)) continue;
-
-            $item = $dispatch->items->firstWhere('product', $product);
-            if (!$item) continue;
-
-            $newSoldCash = (int) ($data['sold_cash'] ?? 0);
-            $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
-            $maxSold = $item->opening_stock + $item->dispatched_qty;
-            $totalSold = $newSoldCash + $newSoldCredit;
-
-            if ($totalSold > $maxSold) {
-                throw new \Exception("Total sold ($totalSold) cannot exceed available stock ($maxSold) for $product");
-            }
-
-            $remaining = $maxSold - $totalSold;
-            $unitPrice = $products[$product];
-            $lineTotal = $totalSold * $unitPrice;
-
-            $totalItemsSold += $totalSold;
-            $totalSalesValue += $lineTotal;
-            $calculatedCashReceived += $newSoldCash * $unitPrice;
-            $creditSalesValue += $newSoldCredit * $unitPrice;
-            $remainingInventoryValue += $remaining * $unitPrice;
-
-            $itemsForCommission[] = [
-                'product' => $product,
-                'opening_stock' => $item->opening_stock,
-                'dispatched_qty' => $item->dispatched_qty,
-                'sold_qty' => $totalSold,
-                'unit_price' => $unitPrice,
-            ];
-
-            $item->update([
-                'sold_cash' => $newSoldCash,
-                'sold_credit' => $newSoldCredit,
-                'sold_qty' => $totalSold,
-                'remaining_qty' => $remaining,
-                'line_total' => $lineTotal,
-            ]);
-        }
-
-        // Calculate commissions
-        $commissionTotal = $this->computeCommissionStuff($itemsForCommission, $totalSalesValue);
-
-        // Process expenses
-        $totalDriverExpenses = $this->processExpenses($request, $dispatch);
-
-        // Calculate expected cash after deductions
-        $expectedAfterDeductions = $calculatedCashReceived - $commissionTotal - $totalDriverExpenses;
-
-        // Get actual cash received
-        $actualCashReceived = $this->getActualCashReceived($request, $expectedAfterDeductions, $dispatch);
-
-        // 🎯 CHECK if back debt adjustment is actually needed
-        if ($this->shouldAdjustBackDebt(
-            $oldCashReceived, 
-            $actualCashReceived, 
-            $oldExpectedAfterDeductions, 
-            $expectedAfterDeductions
-        )) {
-            // 🎯 AUTOMATED BACK DEBT CALCULATION
-            $backDebtAdjustment = $this->calculateBackDebtAdjustment(
-                $oldCashReceived,
-                $oldExpectedAfterDeductions,
-                $actualCashReceived,
-                $expectedAfterDeductions,
-            );
-
-            if ($backDebtAdjustment != 0) {
-                $successMessage = 'Dispatch updated successfully. Back debt automatically adjusted.';
-            }
-        }
-
-        // Update driver's back debt ONLY if adjustment is needed
-        $driver = User::find($dispatch->driver_id);
-        $newBackDebt = $oldDriverBackDebt + $backDebtAdjustment;
+    /**
+     * ✅ NEW: Check if driver is excluded from back debt
+     */
+    protected function shouldExcludeFromBackDebt($driverId)
+    {
+        $driver = User::find($driverId);
+        if (!$driver) return false;
         
-        if ($backDebtAdjustment != 0) {
-            $driver->back_debt = $newBackDebt;
-            $driver->save();
+        $excludedDrivers = $this->getExcludedBackDebtDrivers();
+        return in_array($driver->name, $excludedDrivers);
+    }
 
-            // Record back debt transaction
-            $this->recordBackDebtTransaction(
-                $driver->id,
-                $dispatch->id,
-                $oldDriverBackDebt,
-                $backDebtAdjustment,
-                $newBackDebt,
-                'dispatch_update',
-                "Dispatch #{$dispatch->dispatch_no} adjustment"
-            );
 
-            \Log::info("Back debt automatically adjusted", [
-                'driver_id' => $driver->id,
-                'dispatch_id' => $dispatch->id,
-                'old_back_debt' => $oldDriverBackDebt,
-                'adjustment' => $backDebtAdjustment,
-                'new_back_debt' => $newBackDebt
-            ]);
-        }
+public function update(Request $request, $id)
+    {
+        $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
+        $products = config('bakery_products');
 
-        // Calculate final balance due
-        $balanceDue = $remainingInventoryValue + $creditSalesValue + $newBackDebt;
-
-        // Update dispatch record
-        $dispatch->update([
-            'notes' => $request->notes,
-            'driver_signature' => $request->driver_signature,
-            'total_items_sold' => $totalItemsSold,
-            'total_sales_value' => $totalSalesValue,
-            'commission_total' => $commissionTotal,
-            'driver_expenses' => $totalDriverExpenses,
-            'cash_received' => $actualCashReceived,
-            'expected_cash_after_deductions' => $expectedAfterDeductions,
-            'balance_due' => $balanceDue,
+        $request->validate([
+            'items' => ['required', 'array'],
+            'notes' => ['nullable', 'string'],
+            'cash_received' => ['nullable', 'numeric', 'min:0'],
+            'driver_signature' => ['nullable', 'string'],
+            'expenses' => ['nullable', 'array'],
+            'expenses.*.expense_type' => ['required_with:expenses.*.amount', 'string'],
+            'expenses.*.amount' => ['required_with:expenses.*.expense_type', 'numeric', 'min:0'],
+            'expenses.*.description' => ['nullable', 'string', 'max:500'],
+            'expenses.*.receipt' => ['nullable', 'image', 'max:2048'],
         ]);
-    });
 
-    return redirect()->route('manager.dispatches.index')->with('success', $successMessage);
-}
+        $backDebtAdjustment = 0;
+        $successMessage = 'Dispatch updated successfully.';
+
+        // ✅ CHECK: Skip back debt for excluded drivers
+        $isExcludedFromBackDebt = $this->shouldExcludeFromBackDebt($dispatch->driver_id);
+
+        DB::transaction(function () use ($dispatch, $request, $products, &$backDebtAdjustment, &$successMessage, $isExcludedFromBackDebt) {
+            // Store OLD values for back debt calculation
+            $oldCashReceived = $dispatch->cash_received;
+            $oldExpectedAfterDeductions = $dispatch->expected_cash_after_deductions;
+            $oldDriverBackDebt = $dispatch->driver->back_debt;
+
+            // Calculate NEW financial values
+            $totalItemsSold = 0;
+            $totalSalesValue = 0;
+            $calculatedCashReceived = 0;
+            $creditSalesValue = 0;
+            $remainingInventoryValue = 0;
+            $itemsForCommission = [];
+
+            foreach ($request->items as $product => $data) {
+                if (!array_key_exists($product, $products)) continue;
+
+                $item = $dispatch->items->firstWhere('product', $product);
+                if (!$item) continue;
+
+                $newSoldCash = (int) ($data['sold_cash'] ?? 0);
+                $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
+                $maxSold = $item->opening_stock + $item->dispatched_qty;
+                $totalSold = $newSoldCash + $newSoldCredit;
+
+                if ($totalSold > $maxSold) {
+                    throw new \Exception("Total sold ($totalSold) cannot exceed available stock ($maxSold) for $product");
+                }
+
+                $remaining = $maxSold - $totalSold;
+                $unitPrice = $products[$product];
+                $lineTotal = $totalSold * $unitPrice;
+
+                $totalItemsSold += $totalSold;
+                $totalSalesValue += $lineTotal;
+                $calculatedCashReceived += $newSoldCash * $unitPrice;
+                $creditSalesValue += $newSoldCredit * $unitPrice;
+                $remainingInventoryValue += $remaining * $unitPrice;
+
+                $itemsForCommission[] = [
+                    'product' => $product,
+                    'opening_stock' => $item->opening_stock,
+                    'dispatched_qty' => $item->dispatched_qty,
+                    'sold_qty' => $totalSold,
+                    'unit_price' => $unitPrice,
+                ];
+
+                $item->update([
+                    'sold_cash' => $newSoldCash,
+                    'sold_credit' => $newSoldCredit,
+                    'sold_qty' => $totalSold,
+                    'remaining_qty' => $remaining,
+                    'line_total' => $lineTotal,
+                ]);
+            }
+
+            // Calculate commissions
+            $commissionTotal = $this->computeCommissionStuff($itemsForCommission, $totalSalesValue);
+
+            // Process expenses
+            $totalDriverExpenses = $this->processExpenses($request, $dispatch);
+
+            // Calculate expected cash after deductions
+            $expectedAfterDeductions = $calculatedCashReceived - $commissionTotal - $totalDriverExpenses;
+
+            // Get actual cash received
+            $actualCashReceived = $this->getActualCashReceived($request, $expectedAfterDeductions, $dispatch);
+
+            // ✅ MODIFIED: Only calculate back debt for NON-excluded drivers
+            if (!$isExcludedFromBackDebt && $this->shouldAdjustBackDebt(
+                $oldCashReceived, 
+                $actualCashReceived, 
+                $oldExpectedAfterDeductions, 
+                $expectedAfterDeductions
+            )) {
+                $backDebtAdjustment = $this->calculateBackDebtAdjustment(
+                    $oldCashReceived,
+                    $oldExpectedAfterDeductions,
+                    $actualCashReceived,
+                    $expectedAfterDeductions,
+                );
+
+                if ($backDebtAdjustment != 0) {
+                    $successMessage = 'Dispatch updated successfully. Back debt automatically adjusted.';
+                }
+            }
+
+            // Update driver's back debt ONLY if adjustment is needed AND driver is NOT excluded
+            $driver = User::find($dispatch->driver_id);
+            $newBackDebt = $isExcludedFromBackDebt ? 0 : ($oldDriverBackDebt + $backDebtAdjustment);
+            
+            if (!$isExcludedFromBackDebt && $backDebtAdjustment != 0) {
+                $driver->back_debt = $newBackDebt;
+                $driver->save();
+
+                // Record back debt transaction
+                $this->recordBackDebtTransaction(
+                    $driver->id,
+                    $dispatch->id,
+                    $oldDriverBackDebt,
+                    $backDebtAdjustment,
+                    $newBackDebt,
+                    'dispatch_update',
+                    "Dispatch #{$dispatch->dispatch_no} adjustment"
+                );
+
+                \Log::info("Back debt automatically adjusted", [
+                    'driver_id' => $driver->id,
+                    'dispatch_id' => $dispatch->id,
+                    'old_back_debt' => $oldDriverBackDebt,
+                    'adjustment' => $backDebtAdjustment,
+                    'new_back_debt' => $newBackDebt
+                ]);
+            }
+
+            // ✅ MODIFIED: Balance due calculation excludes back debt for specific drivers
+            $balanceDue = $remainingInventoryValue + $creditSalesValue + ($isExcludedFromBackDebt ? 0 : $newBackDebt);
+
+            // Update dispatch record
+            $dispatch->update([
+                'notes' => $request->notes,
+                'driver_signature' => $request->driver_signature,
+                'total_items_sold' => $totalItemsSold,
+                'total_sales_value' => $totalSalesValue,
+                'commission_total' => $commissionTotal,
+                'driver_expenses' => $totalDriverExpenses,
+                'cash_received' => $actualCashReceived,
+                'expected_cash_after_deductions' => $expectedAfterDeductions,
+                'balance_due' => $balanceDue,
+            ]);
+        });
+
+        return redirect()->route('manager.dispatches.index')->with('success', $successMessage);
+    }
+
 
 /**
  * Calculate back debt adjustment based on cash differences

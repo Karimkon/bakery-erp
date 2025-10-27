@@ -175,6 +175,10 @@ Route::get('dispatches/financial-details/{driverId}', [\App\Http\Controllers\Adm
     ->name('dispatches.financial-details');
 Route::get('dispatches/history/{driver}', [\App\Http\Controllers\Admin\DispatchController::class, 'history'])
     ->name('dispatches.history');
+
+    Route::get('dispatches/back-debt-history/{driverId}', 
+  [\App\Http\Controllers\Admin\DispatchController::class, 'backDebtHistory']
+)->name('dispatches.back-debt-history');
    
     Route::resource('dispatches', \App\Http\Controllers\Admin\DispatchController::class)->only(['index','create','store','show','edit','update']);
     Route::get('dispatches/openings/{driver}/{date}', [\App\Http\Controllers\Admin\DispatchController::class, 'openings'])

@@ -259,6 +259,19 @@
 
 <div class="row g-3 mt-3">
     <div class="col-md-6">
+        <div id="no_back_debt_notice" class="card border-success" style="display: none;">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">✅ No Back Debt Tracking</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">
+                    <i class="bi bi-check-circle me-2"></i>
+                    This driver is excluded from back debt tracking. 
+                    All cash differences will be handled separately.
+                </p>
+            </div>
+        </div>
+        
         <div class="card border-info">
             <div class="card-header bg-info text-white">
                 <h6 class="mb-0">💰 Automated Back Debt Tracking</h6>
@@ -313,22 +326,23 @@
 
 @push('scripts')
 <script>
-
 $(function () {
     'use strict';
 
-    // Define drivers who should not receive commission
-const excludedDrivers = ['Nakato Kampala', 'Aria Nabadda'];
+    // Define drivers who should not have back debt
+    const excludedBackDebtDrivers = ['Ariah Nabadda', 'Nakato Kampala'];
+    
+    // Get current driver name
+    let currentDriverName = $('#driver_id option:selected').text().trim();
+    if (!currentDriverName) {
+        currentDriverName = '{{ $dispatch->driver->name }}';
+    }
+    
+    // Check if current driver is excluded from back debt
+    const isExcludedFromBackDebt = excludedBackDebtDrivers.includes(currentDriverName);
 
-// Detect currently selected driver name from the dropdown (disabled or not)
-let currentDriverName = $('#driver_id option:selected').text().trim();
-
-// If driver select is disabled (readonly), we still get its text from the selected option
-if (!currentDriverName) {
-    currentDriverName = '{{ $dispatch->driver->name }}';
-}
-
-
+    // Remove this duplicate declaration - it's already defined above
+    // let currentDriverName = $('#driver_id option:selected').text().trim();
 
     if (typeof $.fn.select2 !== 'undefined') {
         $('.select2').select2({ placeholder: 'Search driver' });
@@ -484,17 +498,17 @@ if (!currentDriverName) {
             let commission = 0;
 
             // Only calculate commission if driver is not excluded
-            if (!excludedDrivers.includes(currentDriverName)) {
+            // FIX: Use the correct variable name
+            if (!excludedBackDebtDrivers.includes(currentDriverName)) {
                 commission = Math.round(totalSold * rate * multiplier);
             }
-
 
             $r.find('.commission-col').text(formatCurrency(commission));
             $r.find('.commission-value').val(commission);
         });
     }
 
-    // Recompute all totals - SINGLE FUNCTION (removed duplicate)
+    // Recompute all totals
     function recomputeTotals() {
         let calculatedCashReceived = 0;
         let totalItemsSold = 0;
@@ -539,9 +553,8 @@ if (!currentDriverName) {
             actualCashReceived = expectedAfterDeductions;
         }
 
-        // Get current back debt value from input (manual adjustment only)
-        const currentBackDebt = parseFloatSafe($('#back_debt_input').val());
-
+        // ✅ MODIFIED: Exclude back debt for specific drivers in display
+        const currentBackDebt = isExcludedFromBackDebt ? 0 : parseFloatSafe($('#current_back_debt_display').text().replace(/[^\d.-]/g, ''));
 
         // Update display fields
         $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
@@ -549,11 +562,24 @@ if (!currentDriverName) {
         $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
         $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
 
+        // ✅ MODIFIED: Balance due excludes back debt for excluded drivers
+        const balanceDue = remainingInventoryValue + creditSalesValue + (isExcludedFromBackDebt ? 0 : currentBackDebt);
+        $('#balance_due_display').val(formatCurrency(balanceDue));
+
         // Update hidden form fields
         $('#commission_total').val(commissionTotal.toFixed(2));
         $('#total_sales_value').val((calculatedCashReceived + creditSalesValue).toFixed(2));
         $('#total_items_sold').val(totalItemsSold);
         $('#driver_expenses_total').val(driverExpenses.toFixed(2));
+
+        // ✅ Show/hide back debt section based on driver
+        if (isExcludedFromBackDebt) {
+            $('#back_debt_section').hide();
+            $('#no_back_debt_notice').show();
+        } else {
+            $('#back_debt_section').show();
+            $('#no_back_debt_notice').hide();
+        }
     }
 
     // Event handlers - only watch cash input
@@ -641,17 +667,6 @@ if (!currentDriverName) {
         if (!actualCash || actualCash == '' || actualCash == '0') {
             const expectedAfterDeductions = parseFloat($('#expected_after_deductions_display').val().replace(/,/g, ''));
             $('#actual_cash_received').val(expectedAfterDeductions.toFixed(2));
-        }
-        
-        // Ensure back_debt field is included in form submission even if readonly
-        const backDebtValue = $('#back_debt_input').val();
-        if (backDebtValue !== undefined && backDebtValue !== '') {
-            // Update hidden field with current value
-            $('#back_debt_hidden').val(backDebtValue);
-            $('#back_debt_input').prop('readonly', false);
-            setTimeout(() => {
-                $('#back_debt_input').prop('readonly', true);
-            }, 100);
         }
         
         // Save signature

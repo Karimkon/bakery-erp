@@ -625,4 +625,15 @@ class DispatchController extends Controller
 
         return view('admin.dispatches.history', compact('driver', 'dispatches'));
     }
+
+    public function backDebtHistory($driverId)
+{
+    $driver = User::findOrFail($driverId);
+    $history = \App\Models\DriverBackDebtTransaction::with(['dispatch', 'recordedBy'])
+        ->where('driver_id', $driverId)
+        ->orderBy('created_at', 'desc')
+        ->paginate(20);
+
+    return view('admin.dispatches.back_debt_history', compact('driver', 'history'));
+}
 }
