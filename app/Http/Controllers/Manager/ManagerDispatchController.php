@@ -389,16 +389,10 @@ protected function calculateBackDebtAdjustment(
     $newActualCashReceived, 
     $newExpectedAfterDeductions
 ) {
-    // Calculate what the driver SHOULD have paid vs what they ACTUALLY paid
-    $oldNetPayment = $oldCashReceived - $oldExpectedAfterDeductions;
-    $newNetPayment = $newActualCashReceived - $newExpectedAfterDeductions;
+    // SIMPLEST FIX: Only track ACTUAL cash differences
+    // Ignore expenses and commissions completely
     
-    // 🎯 CORE LOGIC: 
-    // If new payment is BETTER (more positive or less negative), back debt should DECREASE
-    // If new payment is WORSE (less positive or more negative), back debt should INCREASE
-    $adjustment = $oldNetPayment - $newNetPayment;
-    
-    return $adjustment;
+    return $oldCashReceived - $newActualCashReceived;
 }
 
 /**

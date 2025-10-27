@@ -17,6 +17,7 @@ use App\Http\Controllers\Manager\ManagerDashboardController;
 use App\Http\Controllers\Manager\ManagerReportsController;
 use App\Http\Controllers\Admin\AdminDamageController;
 use App\Http\Controllers\Admin\AdminExpenseController;
+use App\Http\Controllers\Admin\ProductionApprovalController;
 
 
 
@@ -256,6 +257,24 @@ Route::get('/reports/daily-cash', [\App\Http\Controllers\Admin\DailyCashReportCo
 Route::get('/reports/daily-cash/range', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'dateRange'])->name('reports.daily-cash.range');
 Route::get('/reports/daily-cash/api/summary', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getDailySummary'])->name('reports.daily-cash.api.summary');
 Route::get('/api/cash-balance', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getCashBalance'])->name('api.cash-balance');
+
+// Production Approvals - Alternative structure
+    Route::get('production-approvals', [ProductionApprovalController::class, 'index'])->name('productions.approval-index');
+    Route::get('production-approvals/{production}', [ProductionApprovalController::class, 'show'])->name('productions.approval-show');
+    Route::post('production-approvals/{production}/approve', [ProductionApprovalController::class, 'approve'])->name('productions.approve');
+    Route::post('production-approvals/{production}/reject', [ProductionApprovalController::class, 'reject'])->name('productions.reject');
+
+    // Add to admin routes group
+Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('daily-production', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'index'])->name('daily-production');
+    Route::get('daily-production/export-pdf', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'exportPdf'])->name('daily-production.export-pdf');
+    Route::get('/daily-production/export-html', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'exportHtml'])
+    ->name('daily-production.export-html');
+    Route::post('daily-production/send-whatsapp', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'sendWhatsAppReport'])->name('daily-production.send-whatsapp');
+    Route::post('daily-production/send-email', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'sendEmailReport'])->name('daily-production.send-email');
+    Route::post('daily-production/auto-send', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'autoSendDailyReport'])->name('daily-production.auto-send');
+});
+
 });
 
 Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(function () {
@@ -369,6 +388,20 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
         Route::post('/ingredients/{ingredient}/quick-add-stock', [\App\Http\Controllers\Manager\ManagerIngredientController::class, 'quickAddStock'])
     ->name('ingredients.quick-add-stock');
 
+    // 🟩 Manager Production Approval Routes
+    Route::prefix('productions/approval')->name('productions.approval.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Manager\ProductionApprovalController::class, 'index'])->name('index');
+        Route::get('/{production}', [\App\Http\Controllers\Manager\ProductionApprovalController::class, 'show'])->name('show');
+        Route::post('/{production}/approve', [\App\Http\Controllers\Manager\ProductionApprovalController::class, 'approve'])->name('approve');
+        Route::post('/{production}/reject', [\App\Http\Controllers\Manager\ProductionApprovalController::class, 'reject'])->name('reject');
+
+         // ✅ NEW: Edit routes
+    Route::get('/approval/{production}/edit', [ProductionApprovalController::class, 'edit'])
+        ->name('/approval.edit');
+    Route::put('/approval/{production}/update', [ProductionApprovalController::class, 'update'])
+        ->name('/approval.update');
+
+    });
     
     });
 

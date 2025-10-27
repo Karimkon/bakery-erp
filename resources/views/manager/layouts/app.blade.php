@@ -150,6 +150,13 @@ body {
             <i class="bi bi-truck"></i> Driver Dispatches
         </a>
 
+        <a href="{{ route('manager.productions.approval.index') }}" 
+        class="{{ request()->routeIs('manager.productions.approval.*') ? 'active' : '' }}">
+        <i class="bi bi-check2-square"></i> Production Approvals
+        </a>
+
+
+
         <a href="{{ route('manager.ingredients.index') }}" class="{{ request()->routeIs('manager.ingredients.*') ? 'active' : '' }}">
             <i class="bi bi-box-seam"></i> Ingredients
         </a>

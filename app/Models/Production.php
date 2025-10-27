@@ -35,16 +35,29 @@ class Production extends Model
         'total_value',
         'has_variance',
         'variance_notes',
+
+        // 🆕 Approval System Fields
+        'status',
+        'rejection_reason',
+        'approved_at',
+        'approved_by',
+        'stock_updated',
     ];
 
     protected $casts = [
         'production_date' => 'date',
+        'approved_at' => 'datetime',
         'flour_bags' => 'decimal:2',
         'total_value' => 'decimal:2',
         'has_variance' => 'boolean',
+        'stock_updated' => 'boolean',
     ];
 
-    // Relationships
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -55,12 +68,61 @@ class Production extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function ingredientUsages()
     {
         return $this->hasMany(\App\Models\IngredientUsage::class);
     }
 
-    // Helper methods (these should be static or called differently)
+    /*
+    |--------------------------------------------------------------------------
+    | Query Scopes
+    |--------------------------------------------------------------------------
+    */
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helper Methods
+    |--------------------------------------------------------------------------
+    */
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isApproved()
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isRejected()
+    {
+        return $this->status === 'rejected';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics / Reports
+    |--------------------------------------------------------------------------
+    */
     public static function chefDailyPerformance($chefId, $date)
     {
         return self::where('user_id', $chefId)

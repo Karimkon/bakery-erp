@@ -318,6 +318,9 @@ body {
                 </div>
             </div>
 
+            <li><a href="{{ route('admin.productions.approval-index') }}"><i class="bi bi-check2-square"></i> Production Approvals</a></li>
+
+
             <!-- Dispatch -->
             <div class="accordion-item">
                 <h2 class="accordion-header">
@@ -416,10 +419,30 @@ body {
                 <i class="bi bi-graph-up-arrow"></i> Product Profit Analysis
             </a>
 
-            <a href="{{ route('admin.reports.index') }}" 
-                class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
-                    <i class="bi bi-file-earmark-bar-graph"></i> Reports
+            <!-- Reports Accordion -->
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reportsCollapse">
+            <i class="bi bi-file-earmark-bar-graph"></i> Reports
+        </button>
+    </h2>
+    <div id="reportsCollapse" class="accordion-collapse collapse {{ request()->is('admin/reports*') ? 'show' : '' }}">
+        <div class="accordion-body">
+            <a href="{{ route('admin.reports.daily-production') }}" 
+               class="{{ request()->routeIs('admin.reports.daily-production*') ? 'active' : '' }}">
+                <i class="bi bi-calendar-day me-2"></i> Daily Production Report
             </a>
+            <a href="{{ route('admin.reports.index') }}" 
+               class="{{ request()->routeIs('admin.reports.index') ? 'active' : '' }}">
+                <i class="bi bi-graph-up me-2"></i> General Reports
+            </a>
+            <a href="{{ route('admin.reports.productprofit') }}" 
+               class="{{ request()->routeIs('admin.reports.productprofit') ? 'active' : '' }}">
+                <i class="bi bi-currency-dollar me-2"></i> Product Profit Analysis
+            </a>
+        </div>
+    </div>
+</div>
 
 
 
