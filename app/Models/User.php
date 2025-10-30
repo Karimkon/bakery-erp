@@ -66,4 +66,26 @@ class User extends Authenticatable
         return $this->hasMany(Production::class, 'user_id');
     }
 
+
+
+    // Add to User model
+public function kampalaShop()
+{
+    return $this->belongsTo(KampalaShop::class, 'shop_id');
+}
+
+public function kampalaDispatches()
+{
+    return $this->hasMany(KampalaDispatch::class, 'received_by');
+}
+
+public function kampalaSales()
+{
+    return $this->hasMany(KampalaSale::class);
+}
+
+public function kampalaBankings()
+{
+    return $this->hasMany(KampalaBanking::class);
+}
 }

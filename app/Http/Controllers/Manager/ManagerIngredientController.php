@@ -59,8 +59,11 @@ class ManagerIngredientController extends Controller
     // Reset modal flag for admin
     session()->forget('seen_stock_modal');
 
-    return redirect()->route('manager.ingredients.index')
-        ->with('success', "Successfully added {$request->stock_to_add} {$ingredient->unit} of {$ingredient->name} to stock.");
+    // Redirect back with preserved filters
+    return redirect()->route('manager.ingredients.index', [
+        'chef_id' => $request->current_chef_id,
+        'name' => $request->current_name
+    ])->with('success', "Successfully added {$request->stock_to_add} {$ingredient->unit} of {$ingredient->name} to stock.");
 }
 
     public function create()

@@ -152,6 +152,32 @@ Route::post('/manager/login', function (Request $request) {
 })->name('manager.login.submit');
 
 
+
+// ----------------------
+// Kampala Shop Login
+// ----------------------
+Route::get('/kampala/login', fn () => view('kampala.auth.login'))->name('kampala.login');
+
+Route::post('/kampala/login', function (Request $request) {
+    $credentials = $request->validate([
+        'email' => ['required','email'],
+        'password' => ['required'],
+    ]);
+
+    if (Auth::attempt([
+        'email' => $request->email,
+        'password' => $request->password,
+        'role' => 'kampala_shop',   // force kampala_shop here
+    ], $request->boolean('remember'))) {
+
+        $request->session()->regenerate();
+        return redirect()->intended(route('kampala.dashboard'));
+    }
+
+    return back()->with('error', 'Only Kampala shop staff can login here.');
+})->name('kampala.login.submit');
+
+
 // ----------------------
 // Shared logout
 // ----------------------
@@ -308,6 +334,7 @@ Route::middleware(['auth','role:finance'])->prefix('finance')->name('finance.')-
 
 Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
     Route::get('/dashboard', [ManagerDashboardController::class,'index'])->name('dashboard');
+    Route::resource('kampala-dispatches', \App\Http\Controllers\Manager\KampalaDispatchController::class);
     // ✅ give manager access to dispatches
     // ✅ Custom route FIRST
     Route::get('dispatches/openings/{driver}/{date}', [App\Http\Controllers\Manager\ManagerDispatchController::class, 'openings'])
@@ -406,9 +433,15 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
     });
 
 
-    
-
-
+    // Kampala shop routes (for Aria & Nakato)
+Route::middleware(['auth','role:kampala_shop'])->prefix('kampala')->name('kampala.')->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\Kampala\KampalaDashboardController::class, 'index'])->name('dashboard');
+    Route::resource('dispatches', \App\Http\Controllers\Kampala\KampalaDispatchController::class)->only(['index', 'show']);
+    Route::post('dispatches/{kampalaDispatch}/receive', [\App\Http\Controllers\Kampala\KampalaDispatchController::class, 'receive'])->name('dispatches.receive');
+    Route::resource('sales', \App\Http\Controllers\Kampala\KampalaSaleController::class);
+    Route::resource('bankings', \App\Http\Controllers\Kampala\KampalaBankingController::class);
+    Route::get('stock', [\App\Http\Controllers\Kampala\KampalaStockController::class, 'index'])->name('stock.index');
+});
 
 // ----------------------
 // Override default login

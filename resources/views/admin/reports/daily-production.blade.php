@@ -116,6 +116,82 @@
         </div>
     </div>
 
+    <!-- Individual Chef Productions -->
+<div class="section-header">
+    <h3>Individual Chef Productions</h3>
+</div>
+@foreach($chefProductions as $chefData)
+<table class="table">
+    <thead>
+        <tr>
+            <th colspan="8" style="background-color: #e9ecef;">
+                👨‍🍳 Chef: {{ $chefData['chef_name'] }} 
+                - Total: UGX {{ number_format($chefData['total_value']) }}
+                - Items: {{ number_format($chefData['total_items']) }}
+            </th>
+        </tr>
+        <tr>
+            <th>Date</th>
+            <th>Flour Bags</th>
+            @foreach(array_keys(config('bakery_products')) as $product)
+                @if($chefData['productions']->sum($product) > 0)
+                <th class="text-center">{{ ucfirst(str_replace('_', ' ', $product)) }}</th>
+                @endif
+            @endforeach
+            <th class="text-center">Total Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($chefData['productions'] as $production)
+        <tr>
+            <td>{{ $production->production_date->format('M d') }}</td>
+            <td>{{ $production->flour_bags }}</td>
+            @foreach(array_keys(config('bakery_products')) as $product)
+                @if($chefData['productions']->sum($product) > 0)
+                <td class="text-center">{{ $production->$product > 0 ? $production->$product : '' }}</td>
+                @endif
+            @endforeach
+            <td class="text-center text-success">UGX {{ number_format($production->total_value) }}</td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
+@endforeach
+
+<!-- Unified Production Summary -->
+<div class="section-header">
+    <h3>Unified Production Summary</h3>
+</div>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th class="text-center">Total Produced</th>
+            <th class="text-center">Unit Price</th>
+            <th class="text-center">Total Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($unifiedProduction as $product => $quantity)
+        @if($quantity > 0)
+        @php $productValue = $quantity * config("bakery_products.$product"); @endphp
+        <tr>
+            <td>{{ ucfirst(str_replace('_', ' ', $product)) }}</td>
+            <td class="text-center">{{ number_format($quantity) }}</td>
+            <td class="text-center">UGX {{ number_format(config("bakery_products.$product")) }}</td>
+            <td class="text-center text-success">UGX {{ number_format($productValue) }}</td>
+        </tr>
+        @endif
+        @endforeach
+        <tr style="background-color: #f8f9fa;">
+            <td><strong>GRAND TOTAL</strong></td>
+            <td class="text-center"><strong>{{ number_format(array_sum($unifiedProduction)) }}</strong></td>
+            <td class="text-center">-</td>
+            <td class="text-center"><strong>UGX {{ number_format($totalProduction) }}</strong></td>
+        </tr>
+    </tbody>
+</table>
+
     <!-- Product Breakdown -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">

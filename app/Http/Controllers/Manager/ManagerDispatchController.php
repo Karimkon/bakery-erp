@@ -382,6 +382,7 @@ public function update(Request $request, $id)
 
 /**
  * Calculate back debt adjustment based on cash differences
+ * FIXED: Now correctly adds when driver pays more, subtracts when driver pays less
  */
 protected function calculateBackDebtAdjustment(
     $oldCashReceived, 
@@ -389,10 +390,10 @@ protected function calculateBackDebtAdjustment(
     $newActualCashReceived, 
     $newExpectedAfterDeductions
 ) {
-    // SIMPLEST FIX: Only track ACTUAL cash differences
-    // Ignore expenses and commissions completely
-    
-    return $oldCashReceived - $newActualCashReceived;
+    // ✅ FIXED LOGIC:
+    // Positive result = driver paid MORE (reduces debt/increases credit)
+    // Negative result = driver paid LESS (increases debt/reduces credit)
+    return $newExpectedAfterDeductions - $newActualCashReceived;
 }
 
 /**
@@ -505,27 +506,46 @@ protected function getActualCashReceived(Request $request, $expectedAfterDeducti
     // ✅ No upper limit - trust the manager knows what they're doing
     return $actualCashReceived;
 }
-    protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
-    {
-        $products = array_keys(config('bakery_products'));
-        $openings = array_fill_keys($products, 0);
+ protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
+{
+    $products = array_keys(config('bakery_products'));
+    $openings = array_fill_keys($products, 0);
 
-        $lastDispatch = Dispatch::where('driver_id', $driverId)
-            ->where('dispatch_date', '<=', $date)
-            ->when($currentDispatchId, fn($q) => $q->where('id', '<>', $currentDispatchId))
+    // For same-day multiple dispatches, we need to find the immediately previous one
+    $query = Dispatch::where('driver_id', $driverId)
+        ->where('dispatch_date', $date);  // ✅ Only same day dispatches
+
+    if ($currentDispatchId) {
+        // Get the dispatch number of the current dispatch we're editing
+        $currentDispatch = Dispatch::find($currentDispatchId);
+        if ($currentDispatch) {
+            // Find dispatches with lower dispatch numbers on the same day
+            $query->where('dispatch_no', '<', $currentDispatch->dispatch_no);
+        }
+    }
+
+    $previousDispatch = $query->orderBy('dispatch_no', 'desc')
+        ->with('items')
+        ->first();
+
+    // If no same-day previous dispatch, check previous days
+    if (!$previousDispatch) {
+        $previousDispatch = Dispatch::where('driver_id', $driverId)
+            ->where('dispatch_date', '<', $date)
             ->orderBy('dispatch_date', 'desc')
             ->orderBy('dispatch_no', 'desc')
             ->with('items')
             ->first();
-
-        if ($lastDispatch) {
-            foreach ($lastDispatch->items as $item) {
-                $openings[$item->product] = $item->remaining_qty;
-            }
-        }
-
-        return $openings;
     }
+
+    if ($previousDispatch) {
+        foreach ($previousDispatch->items as $item) {
+            $openings[$item->product] = $item->remaining_qty;
+        }
+    }
+
+    return $openings;
+}
 
     protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float
     {

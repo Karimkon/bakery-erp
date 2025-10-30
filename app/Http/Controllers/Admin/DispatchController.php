@@ -209,6 +209,7 @@ class DispatchController extends Controller
 
     $request->validate([
         'items' => ['required', 'array'],
+        'items.*.opening_stock' => ['nullable', 'integer', 'min:0'],
         'items.*.dispatched_qty' => ['nullable', 'integer', 'min:0'],
         'items.*.sold_cash' => ['nullable', 'integer', 'min:0'],
         'items.*.sold_credit' => ['nullable', 'integer', 'min:0'],
@@ -222,25 +223,27 @@ class DispatchController extends Controller
         'expenses.*.receipt' => ['nullable', 'image', 'max:2048'],
         'back_debt' => ['nullable', 'numeric', 'min:0'],
         'back_debt_hidden' => ['nullable', 'numeric', 'min:0'],
-    ], [
-        'cash_received.min' => 'Cash received cannot be negative.',
-        'expenses.*.amount.min' => 'Expense amounts cannot be negative.',
     ]);
 
+    \Log::info('=== DISPATCH UPDATE START ===', [
+        'dispatch_id' => $id,
+        'driver_id' => $dispatch->driver_id,
+        'items_count' => count($request->items ?? [])
+    ]);
+
+    try {
     DB::transaction(function () use ($dispatch, $request, $products) {
-        // STEP 1: Update Driver's Back Debt if changed
+        // STEP 1: Update Driver's Back Debt
         $driver = User::find($dispatch->driver_id);
         $newBackDebt = (float) $request->input('back_debt', $request->input('back_debt_hidden', $driver->back_debt));
-
-        // Always update back debt with the form value
         $driver->back_debt = $newBackDebt;
         $driver->save();
 
-        // Reload the driver relationship to get updated back debt
+        // Reload driver relationship
         $dispatch->load('driver');
         $driver = $dispatch->driver;
 
-        // STEP 2: Update Dispatch Items (INCLUDING DISPATCHED QTY)
+        // STEP 2: Update Dispatch Items
         $totalItemsSold = 0;
         $totalSalesValue = 0;
         $calculatedCashReceived = 0;
@@ -249,29 +252,45 @@ class DispatchController extends Controller
         $itemsForCommission = [];
 
         foreach ($request->items as $product => $data) {
-            if (!array_key_exists($product, $products)) continue;
+            if (!array_key_exists($product, $products)) {
+                \Log::warning("Skipping unknown product: $product");
+                continue;
+            }
 
             $item = $dispatch->items->firstWhere('product', $product);
-            if (!$item) continue;
+            if (!$item) {
+                \Log::warning("Item not found for product: $product");
+                continue;
+            }
 
-            // Get new dispatched quantity from form
+            // Get values from form
+            $newOpeningStock = (int) ($data['opening_stock'] ?? $item->opening_stock);
+            $oldOpeningStock = $item->opening_stock;
             $newDispatchedQty = (int) ($data['dispatched_qty'] ?? $item->dispatched_qty);
             $oldDispatchedQty = $item->dispatched_qty;
-            
-            $newSoldCash   = (int) ($data['sold_cash'] ?? 0);
+            $newSoldCash = (int) ($data['sold_cash'] ?? 0);
             $newSoldCredit = (int) ($data['sold_credit'] ?? 0);
-            
-            // Calculate max sold with NEW dispatched quantity
-            $maxSold = $item->opening_stock + $newDispatchedQty;
+
+            \Log::info("Processing $product", [
+                'old_opening' => $oldOpeningStock,
+                'new_opening' => $newOpeningStock,
+                'old_dispatched' => $oldDispatchedQty,
+                'new_dispatched' => $newDispatchedQty,
+                'sold_cash' => $newSoldCash,
+                'sold_credit' => $newSoldCredit,
+            ]);
+
+            // Validate sales don't exceed available stock
+            $maxSold = $newOpeningStock + $newDispatchedQty;
             $totalSold = $newSoldCash + $newSoldCredit;
 
             if ($totalSold > $maxSold) {
                 throw new \Exception("Total sold ($totalSold) cannot exceed available stock ($maxSold) for $product");
             }
 
-            // Handle stock adjustment if dispatched quantity changed
+            // Handle DISPATCHED quantity changes (affects bakery stock)
             if ($newDispatchedQty != $oldDispatchedQty) {
-                $stock = \App\Models\BakeryStock::where('product', $product)->first();
+                $stock = \App\Models\BakeryStock::where('product', $product)->lockForUpdate()->first();
                 
                 if (!$stock) {
                     throw new \Exception("No stock record found for $product");
@@ -279,19 +298,32 @@ class DispatchController extends Controller
 
                 $qtyDifference = $newDispatchedQty - $oldDispatchedQty;
 
-                // If increasing dispatch, check if we have enough stock
                 if ($qtyDifference > 0) {
+                    // Increasing dispatch - need more stock
                     if ($stock->quantity < $qtyDifference) {
                         throw new \Exception("Not enough bakery stock for $product. Available: {$stock->quantity}, Needed: {$qtyDifference}");
                     }
-                    // Deduct additional stock
                     $stock->decrement('quantity', $qtyDifference);
+                    \Log::info("Decreased bakery stock for $product by $qtyDifference");
                 } else {
-                    // Restore stock (dispatched quantity was reduced)
+                    // Decreasing dispatch - return stock
                     $stock->increment('quantity', abs($qtyDifference));
+                    \Log::info("Increased bakery stock for $product by " . abs($qtyDifference));
                 }
             }
 
+            // NOTE: Opening stock changes do NOT affect bakery stock
+            // Opening stock represents what came from previous dispatch (remaining stock)
+            // It's a correction/adjustment of historical data, not a new dispatch from bakery
+            if ($newOpeningStock != $oldOpeningStock) {
+                \Log::info("Opening stock adjusted", [
+                    'product' => $product,
+                    $product.'_old_opening' => $oldOpeningStock,
+                    $product.'_new_opening' => $newOpeningStock,
+                ]);
+            }
+
+            // Calculate values
             $remaining = $maxSold - $totalSold;
             $unitPrice = $products[$product];
             $lineTotal = $totalSold * $unitPrice;
@@ -304,20 +336,27 @@ class DispatchController extends Controller
 
             $itemsForCommission[] = [
                 'product'        => $product,
-                'opening_stock'  => $item->opening_stock,
+                'opening_stock'  => $newOpeningStock,
                 'dispatched_qty' => $newDispatchedQty,
                 'sold_qty'       => $totalSold,
                 'unit_price'     => $unitPrice,
             ];
 
-            // Update item with new dispatched quantity
+            // Update the item
             $item->update([
+                'opening_stock'  => $newOpeningStock,
                 'dispatched_qty' => $newDispatchedQty,
                 'sold_cash'      => $newSoldCash,
                 'sold_credit'    => $newSoldCredit,
                 'sold_qty'       => $totalSold,
                 'remaining_qty'  => $remaining,
                 'line_total'     => $lineTotal,
+            ]);
+
+            \Log::info("Updated item $product successfully", [
+                'opening_stock' => $newOpeningStock,
+                'dispatched_qty' => $newDispatchedQty,
+                'remaining_qty' => $remaining,
             ]);
         }
 
@@ -387,7 +426,6 @@ class DispatchController extends Controller
         // STEP 5: Financial Calculations
         $expectedAfterDeductions = $calculatedCashReceived - $commissionTotal - $totalDriverExpenses;
         
-        // Get actual cash from form - if empty, use expected
         $actualCashInput = $request->input('cash_received');
         
         if ($actualCashInput === null || $actualCashInput === '' || (float)$actualCashInput == 0) {
@@ -411,7 +449,20 @@ class DispatchController extends Controller
             'expected_cash_after_deductions' => $expectedAfterDeductions,
             'balance_due'                    => $balanceDue,
         ]);
+
+        \Log::info('=== DISPATCH UPDATE COMPLETE ===', [
+            'dispatch_id' => $dispatch->id,
+            'total_sales' => $totalSalesValue,
+            'balance_due' => $balanceDue,
+        ]);
     });
+    } catch (\Throwable $e) {
+        \Log::error('Admin dispatch update failed', [
+            'dispatch_id' => $id,
+            'error' => $e->getMessage(),
+        ]);
+        return back()->withErrors(['update' => 'Failed to update dispatch: '.$e->getMessage()])->withInput();
+    }
 
     return redirect()->route('admin.dispatches.index')
                     ->with('success', 'Dispatch updated successfully.');

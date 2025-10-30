@@ -127,10 +127,10 @@
         </div>
     </div>
 
-    <!-- Pagination -->
-    <div class="mt-4">
-        {{ $productions->appends(['status' => $status])->links() }}
-    </div>
+   <!-- Pagination -->
+<div class="mt-4 d-flex justify-content-end">
+    {{ $productions->appends(['status' => $status])->links('pagination::bootstrap-5') }}
+</div>
 </div>
 
 <style>

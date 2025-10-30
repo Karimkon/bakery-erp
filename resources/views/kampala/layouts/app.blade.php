@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>@yield('title','Kampala Shop') - Bread Cravers</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- Bootstrap 5 & Icons --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+
+    <style>
+        /* === KAMPALA SHOP LAYOUT === */
+        :root {
+            --kampala-accent: #10b981; /* Emerald green */
+            --kampala-hover: #fff;
+            --kampala-text: #333;
+        }
+
+        body {
+            background:#f8fafc;
+        }
+
+        .sidebar {
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            min-height: 100vh;
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                min-height: auto;
+            }
+        }
+
+        .sidebar h5 {
+            font-weight: 700;
+            color: var(--kampala-accent);
+        }
+
+        .sidebar .list-group-item {
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: var(--kampala-text);
+            font-weight: 500;
+            border-radius: 6px;
+            background: transparent;
+            transition: all .2s ease;
+        }
+
+        .sidebar .list-group-item:hover,
+        .sidebar .list-group-item.active {
+            background: var(--kampala-accent);
+            color: var(--kampala-hover);
+            transform: translateX(4px);
+            box-shadow: 0 3px 6px rgba(0,0,0,.05);
+        }
+
+        .sidebar .list-group-item.dashboard-link {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid var(--kampala-accent);
+        }
+
+        .sidebar .list-group-item .bi {
+            color: inherit;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            margin-top: 1rem;
+        }
+        .sidebar-footer .logout-button {
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: var(--kampala-text);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all .2s ease;
+        }
+        .sidebar-footer .logout-button:hover {
+            background: #d1fae5;
+            color: var(--kampala-accent);
+        }
+
+        .stat-card {
+            cursor: pointer;
+            border-radius: 8px;
+            transition: .2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 .5rem 1rem rgba(0,0,0,.08)!important;
+        }
+
+        .stat {
+            font-weight: 600;
+        }
+    </style>
+
+    @stack('head')
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        {{-- Sidebar --}}
+        <aside class="col-12 col-lg-2 sidebar p-3">
+            <h5 class="mb-4">Kampala Shop</h5>
+            <div class="list-group">
+                {{-- Dashboard Link --}}
+                <a class="list-group-item list-group-item-action dashboard-link {{ request()->routeIs('kampala.dashboard') ? 'active' : '' }}" 
+                   href="{{ route('kampala.dashboard') }}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.dispatches.*') ? 'active' : '' }}" 
+                   href="{{ route('kampala.dispatches.index') }}">
+                    <i class="bi bi-truck"></i> Dispatches
+                </a>
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.sales.*') ? 'active' : '' }}" 
+                   href="{{ route('kampala.sales.index') }}">
+                    <i class="bi bi-cash-coin"></i> Sales (POS)
+                </a>
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.sales.create') ? 'active' : '' }}" 
+                   href="{{ route('kampala.sales.create') }}">
+                    <i class="bi bi-bag-plus"></i> New Sale
+                </a>
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.stock.index') ? 'active' : '' }}" 
+                   href="{{ route('kampala.stock.index') }}">
+                    <i class="bi bi-box-seam"></i> Stock
+                </a>
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.bankings.*') ? 'active' : '' }}" 
+                   href="{{ route('kampala.bankings.index') }}">
+                    <i class="bi bi-bank"></i> Bankings
+                </a>
+            </div>
+            <div class="sidebar-footer mt-3">
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="logout-button">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        {{-- Main --}}
+        <main class="col-12 col-lg-10 p-3 p-lg-4">
+            @includeWhen(session('success') || session('error') || $errors->any(), 'kampala.partials.flash')
+            @yield('content')
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+@stack('scripts')
+</body>
+</html>

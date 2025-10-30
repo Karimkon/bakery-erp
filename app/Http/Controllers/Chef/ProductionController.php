@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Chef;
 use App\Http\Controllers\Controller;
 use App\Models\Production;
 use App\Models\Ingredient;
-use App\Models\StockHistory; // ✅ Add this import
+use App\Models\StockHistory; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,16 +14,22 @@ use App\Models\User;
 
 class ProductionController extends Controller
 {
-    public function index()
-    {
-        // Only THIS chef's productions
-        $productions = Production::with('chef') // assuming you have a 'chef' relation in Production model
+   public function index(Request $request)
+{
+    $date = $request->get('date');
+    
+    // Only THIS chef's productions
+    $productions = Production::with('chef')
         ->where('user_id', Auth::id())
+        ->when($date, function($query, $date) {
+            // Only apply date filter if date is provided
+            return $query->whereDate('production_date', $date);
+        })
         ->latest()
-        ->paginate(15);
-        
-        return view('chef.productions.index', compact('productions'));
-    }
+        ->paginate(20);
+    
+    return view('chef.productions.index', compact('productions', 'date'));
+}
 
     public function create()
     {

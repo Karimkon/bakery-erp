@@ -78,11 +78,19 @@
                 <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
                 <div class="text-muted small">UGX {{ number_format($price) }}</div>
             </td>
-            <td>
-                <input type="number" class="form-control form-control-sm opening-stock" 
-                       data-opening="{{ $opening }}"
-                       value="{{ $opening }}" readonly tabindex="-1">
-            </td>
+       <td>
+    <div class="input-group input-group-sm">
+        <input type="number" 
+               class="form-control form-control-sm opening-stock" 
+               name="items[{{ $product }}][opening_stock]"
+               data-original-opening="{{ $opening }}"
+               value="{{ $opening }}" 
+               min="0">
+        <button type="button" class="btn btn-outline-secondary btn-sm unlock-opening" title="Edit Opening">
+            <i class="bi bi-pencil"></i>
+        </button>
+    </div>
+</td>
             <td>
                 <input type="number" 
                        class="form-control form-control-sm dispatched-qty" 
@@ -296,11 +304,27 @@
     </a>
 </form>
 @endsection
-
 @push('scripts')
 <script>
 $(function () {
     'use strict';
+
+    // Opening stock editing functionality - simplified
+    $(document).on('click', '.unlock-opening', function() {
+        const $input = $(this).closest('.input-group').find('.opening-stock');
+        const isReadonly = $input.prop('readonly');
+        
+        if (isReadonly) {
+            $input.prop('readonly', false).focus().addClass('border-warning');
+            $(this).html('<i class="bi bi-lock"></i>').removeClass('btn-outline-secondary').addClass('btn-warning');
+        } else {
+            $input.prop('readonly', true).removeClass('border-warning');
+            $(this).html('<i class="bi bi-pencil"></i>').removeClass('btn-warning').addClass('btn-outline-secondary');
+            recomputeRow($(this).closest('tr'));
+            recomputeCommissions();
+            recomputeTotals();
+        }
+    });
 
     // Define drivers who should not receive commission
     const excludedDrivers = ['Nakato Kampala', 'Aria Nabadda'];
@@ -344,11 +368,13 @@ $(function () {
 
     // Utility functions
     function parseIntSafe(value) {
+        if (value === '' || value === null || value === undefined) return 0;
         const num = parseInt(value);
         return Number.isFinite(num) && num >= 0 ? num : 0;
     }
 
     function parseFloatSafe(value) {
+        if (value === '' || value === null || value === undefined) return 0;
         const num = parseFloat(value);
         return Number.isFinite(num) && num >= 0 ? num : 0;
     }
@@ -425,8 +451,8 @@ $(function () {
 
     // Recompute row remaining quantity
     function recomputeRow($row) {
-        const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
-        const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
+        const opening = parseIntSafe($row.find('.opening-stock').val());
+        const dispatched = parseIntSafe($row.find('.dispatched-qty').val());
         let soldCash = parseIntSafe($row.find('.sold-cash').val());
         let soldCredit = parseIntSafe($row.find('.sold-credit').val());
         
@@ -442,7 +468,11 @@ $(function () {
             $row.find('.sold-credit').val(soldCredit);
         }
 
-        const remaining = maxAvailable - (soldCash + soldCredit);
+        // Recalculate with potentially adjusted values
+        const finalSoldCash = parseIntSafe($row.find('.sold-cash').val());
+        const finalSoldCredit = parseIntSafe($row.find('.sold-credit').val());
+        const remaining = maxAvailable - (finalSoldCash + finalSoldCredit);
+        
         $row.find('.remaining-col').text(remaining);
 
         // Update max attribute for sold fields
@@ -456,8 +486,8 @@ $(function () {
 
         $('#items-table tbody tr').each(function() {
             const $r = $(this);
-            const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
-            const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
+            const opening = parseIntSafe($r.find('.opening-stock').val());
+            const dispatched = parseIntSafe($r.find('.dispatched-qty').val());
             const soldCash = parseIntSafe($r.find('.sold-cash').val());
             const soldCredit = parseIntSafe($r.find('.sold-credit').val());
             const totalSold = soldCash + soldCredit;
@@ -508,8 +538,8 @@ $(function () {
         // Loop through each product row
         $('#items-table tbody tr').each(function() {
             const $row = $(this);
-            const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
-            const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
+            const opening = parseIntSafe($row.find('.opening-stock').val());
+            const dispatched = parseIntSafe($row.find('.dispatched-qty').val());
             const soldCash = parseIntSafe($row.find('.sold-cash').val());
             const soldCredit = parseIntSafe($row.find('.sold-credit').val());
             const unitPrice = parseFloatSafe($row.data('price'));
@@ -562,16 +592,8 @@ $(function () {
         $('#driver_expenses_total').val(driverExpenses.toFixed(2));
     }
 
-    // NEW: Add event handler for dispatched quantity changes
-    $('#items-table').on('input change', '.dispatched-qty', function() {
-        const $row = $(this).closest('tr');
-        recomputeRow($row);
-        recomputeCommissions();
-        recomputeTotals();
-    });
-
-    // Event handlers
-    $('#items-table').on('input change', '.sold-cash, .sold-credit', function() {
+    // Event handlers for ALL input changes
+    $('#items-table').on('input change', '.opening-stock, .dispatched-qty, .sold-cash, .sold-credit', function() {
         const $row = $(this).closest('tr');
         recomputeRow($row);
         recomputeCommissions();
@@ -647,8 +669,17 @@ $(function () {
         $('#driver_signature').val('');
     });
 
-    // Form submission
+    // Form submission - CRITICAL FIX
     $('form').on('submit', function(e) {
+        console.log('Form submission started...');
+        
+        // Debug: Log all form data before submission
+        const formData = new FormData(this);
+        console.log('Form data entries:');
+        for (let [key, value] of formData.entries()) {
+            console.log(key + ': ' + value);
+        }
+
         const actualCash = $('#actual_cash_received').val();
         
         // If admin didn't enter actual cash, use expected after deductions
@@ -662,13 +693,20 @@ $(function () {
         if (backDebtValue !== undefined && backDebtValue !== '') {
             $('#back_debt_hidden').val(backDebtValue);
             $('#back_debt_input').prop('readonly', false);
-            setTimeout(() => {
-                $('#back_debt_input').prop('readonly', true);
-            }, 100);
         }
+        
+        // CRITICAL: Ensure ALL opening stock fields are writable for submission
+        $('.opening-stock').each(function() {
+            $(this).prop('readonly', false);
+        });
         
         // Save signature
         $('#driver_signature').val(canvas.toDataURL());
+        
+        console.log('Form submission completed - all fields should be submitted');
+        
+        // Allow the form to submit normally
+        return true;
     });
 });
 </script>

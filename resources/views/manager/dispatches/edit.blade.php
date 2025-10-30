@@ -591,7 +591,12 @@ $(function () {
     });
 
     $('#actual_cash_received').on('input change', function() {
-        recomputeTotals();
+         let value = parseFloat($(this).val());
+    if (value < 0) {
+        $(this).val(0); // Force to zero if negative
+        alert('Cash received cannot be negative');
+    }
+    recomputeTotals();
     });
 
     // Initial calculations

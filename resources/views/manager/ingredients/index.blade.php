@@ -57,16 +57,20 @@
                 <td>{{ number_format($ing->stock, 2) }}</td>
                 <td>
                     <!-- Quick Add Stock Form -->
-                    <form action="{{ route('manager.ingredients.quick-add-stock', $ing) }}" method="POST" class="d-inline">
-                        @csrf
-                        <div class="input-group input-group-sm" style="width: 150px;">
-                            <input type="number" name="stock_to_add" class="form-control form-control-sm" 
-                                   placeholder="Add stock" step="0.01" min="0.01" required>
-                            <button type="submit" class="btn btn-success btn-sm" title="Add Stock">
-                                <i class="bi bi-plus-lg"></i> Add
-                            </button>
-                        </div>
-                    </form>
+<form action="{{ route('manager.ingredients.quick-add-stock', $ing) }}" method="POST" class="d-inline">
+    @csrf
+    <!-- Preserve current filters -->
+    <input type="hidden" name="current_chef_id" value="{{ request('chef_id') }}">
+    <input type="hidden" name="current_name" value="{{ request('name') }}">
+    
+    <div class="input-group input-group-sm" style="width: 150px;">
+        <input type="number" name="stock_to_add" class="form-control form-control-sm" 
+               placeholder="Add stock" step="0.01" min="0.01" required>
+        <button type="submit" class="btn btn-success btn-sm" title="Add Stock">
+            <i class="bi bi-plus-lg"></i> Add
+        </button>
+    </div>
+</form>
                 </td>
                 <td>
                     <a href="{{ route('manager.ingredients.show',$ing) }}" class="btn btn-sm btn-info" title="View">

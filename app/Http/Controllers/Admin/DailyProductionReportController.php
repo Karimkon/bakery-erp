@@ -53,6 +53,27 @@ class DailyProductionReportController extends Controller
         $driverExpenses = DriverExpense::with(['driver', 'dispatch'])
             ->whereDate('created_at', $date)
             ->get();
+        
+        $chefProductions = $productions->groupBy('user_id')->map(function($chefProds) {
+    $totalItems = 0;
+    foreach ($chefProds as $production) {
+        foreach (array_keys(config('bakery_products')) as $product) {
+            $totalItems += $production->$product ?? 0;
+        }
+    }
+    
+    return [
+        'chef_name' => $chefProds->first()->chef->name ?? 'Unknown Chef',
+        'productions' => $chefProds,
+        'total_value' => $chefProds->sum('total_value'),
+        'total_items' => $totalItems
+    ];
+});
+// Add unified production totals
+$unifiedProduction = [];
+foreach (array_keys(config('bakery_products')) as $product) {
+    $unifiedProduction[$product] = $productions->sum($product);
+}
 
         // Calculate totals
         $totalProduction = $productions->sum('total_value');
@@ -140,7 +161,9 @@ class DailyProductionReportController extends Controller
             'driverStock',
             'driverSales',
             'driverDeposits',
-            'financialSummary'
+            'financialSummary',
+            'chefProductions',
+            'unifiedProduction'
         );
     }
 
