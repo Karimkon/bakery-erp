@@ -60,49 +60,52 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($products as $product => $price)
-                    @php
-                        $row = $dispatch->items->firstWhere('product', $product);
-                        $opening    = (int) ($openings[$product] ?? 0);
-                        $dispatched = (int) ($row?->dispatched_qty ?? 0);
-                        $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
-                        $soldCredit = (int) ($row?->sold_credit ?? 0);
-                        $commission = (float) ($row?->commission ?? 0);
-                        $maxSold = $opening + $dispatched;
-                        $remaining = $maxSold - $soldCash;
-                    @endphp
-                    <tr data-product="{{ $product }}" data-price="{{ $price }}">
-                        <td>
-                            <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
-                            <div class="text-muted small">UGX {{ number_format($price) }}</div>
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm opening-stock" 
-                                   data-opening="{{ $opening }}"
-                                   value="{{ $opening }}" readonly tabindex="-1">
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm dispatched-qty" 
-                                   data-dispatched="{{ $dispatched }}"
-                                   value="{{ $dispatched }}" readonly tabindex="-1">
-                        </td>
-                        <td class="text-center">
-                            <span class="remaining-col badge bg-info">{{ $remaining }}</span>
-                        </td>
-                        <td>
-                            <input type="number" class="form-control form-control-sm sold-cash"
-                                   name="items[{{ $product }}][sold_cash]"
-                                   value="{{ $soldCash }}"
-                                   min="0" max="{{ $maxSold }}" 
-                                   data-max="{{ $maxSold }}">
-                        </td>
-                        <td class="text-center">
-                            <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
-                        </td>
-                        <input type="hidden" class="commission-value" value="{{ $commission }}">
-                    </tr>
-                @endforeach
-            </tbody>
+    @foreach($products as $product => $price)
+        @php
+            $row = $dispatch->items->firstWhere('product', $product);
+            $opening    = (int) ($openings[$product] ?? 0);
+            $dispatched = (int) ($row?->dispatched_qty ?? 0);
+            $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
+            $soldCredit = (int)     ($row?->sold_credit ?? 0); // This is critical
+            $commission = (float) ($row?->commission ?? 0);
+            $maxSold = $opening + $dispatched;
+            $remaining = $maxSold - ($soldCash + $soldCredit); // Fix: Include credit sales in remaining calculation
+        @endphp
+        <tr data-product="{{ $product }}" data-price="{{ $price }}" data-sold-credit="{{ $soldCredit }}">
+            <!-- Add data-sold-credit attribute above -->
+            <td>
+                <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
+                <div class="text-muted small">UGX {{ number_format($price) }}</div>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm opening-stock" 
+                    name="items[{{ $product }}][opening_stock]"
+                    value="{{ $opening }}" 
+                    min="0" readonly tabindex="-1" style="background-color: #f8f9fa;">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm dispatched-qty" 
+                    name="items[{{ $product }}][dispatched_qty]"
+                    value="{{ $dispatched }}" 
+                    min="0" readonly tabindex="-1" style="background-color: #f8f9fa;">
+            </td>
+            <td class="text-center">
+                <span class="remaining-col badge bg-info">{{ $remaining }}</span>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm sold-cash"
+                       name="items[{{ $product }}][sold_cash]"
+                       value="{{ $soldCash }}"
+                       min="0" max="{{ $maxSold }}" 
+                       data-max="{{ $maxSold }}">
+            </td>
+            <td class="text-center">
+                <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
+            </td>
+            <input type="hidden" class="commission-value" value="{{ $commission }}">
+        </tr>
+    @endforeach
+</tbody>
         </table>
     </div>
 
@@ -437,150 +440,151 @@ $(function () {
     });
 
     // Recompute row remaining quantity
-    function recomputeRow($row) {
-        const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
-        const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
-        let soldCash = parseIntSafe($row.find('.sold-cash').val());
-        
-        // Read credit sales from data attribute (set by admin, not editable)
-        const soldCredit = parseIntSafe($row.data('sold-credit'));
-        
-        const maxAvailable = opening + dispatched;
+    // Recompute row remaining quantity - FIXED to work like admin side
+function recomputeRow($row) {
+    const opening = parseIntSafe($row.find('.opening-stock').val()); // FIX: Use .val() instead of .data()
+    const dispatched = parseIntSafe($row.find('.dispatched-qty').val()); // FIX: Use .val() instead of .data()
+    let soldCash = parseIntSafe($row.find('.sold-cash').val());
+    
+    // Read credit sales from data attribute (set by admin, not editable)
+    const soldCredit = parseIntSafe($row.data('sold-credit'));
+    
+    const maxAvailable = opening + dispatched;
 
-        // Manager can only edit cash sales, but must account for existing credit sales
+    // Manager can only edit cash sales, but must account for existing credit sales
+    const totalSold = soldCash + soldCredit;
+    
+    if (totalSold > maxAvailable) {
+        // If total exceeds max, reduce only the cash portion
+        soldCash = Math.max(0, maxAvailable - soldCredit);
+        $row.find('.sold-cash').val(soldCash);
+    }
+
+    const remaining = maxAvailable - (soldCash + soldCredit);
+    $row.find('.remaining-col').text(remaining);
+}
+
+// Recompute all commissions - FIXED to work like admin side
+function recomputeCommissions() {
+    let basisValue = 0;
+
+    $('#items-table tbody tr').each(function() {
+        const $r = $(this);
+        const opening = parseIntSafe($r.find('.opening-stock').val()); // FIX: Use .val()
+        const dispatched = parseIntSafe($r.find('.dispatched-qty').val()); // FIX: Use .val()
+        const soldCash = parseIntSafe($r.find('.sold-cash').val());
+        const soldCredit = parseIntSafe($r.data('sold-credit'));
         const totalSold = soldCash + soldCredit;
-        
-        if (totalSold > maxAvailable) {
-            // If total exceeds max, reduce only the cash portion
-            soldCash = Math.max(0, maxAvailable - soldCredit);
-            $row.find('.sold-cash').val(soldCash);
-        }
+        const unitPrice = parseFloatSafe($r.data('price'));
 
-        const remaining = maxAvailable - (soldCash + soldCredit);
-        $row.find('.remaining-col').text(remaining);
-    }
-
-    // Recompute all commissions
-    function recomputeCommissions() {
-        let basisValue = 0;
-
-        $('#items-table tbody tr').each(function() {
-            const $r = $(this);
-            const opening = parseIntSafe($r.find('.opening-stock').data('opening'));
-            const dispatched = parseIntSafe($r.find('.dispatched-qty').data('dispatched'));
-            const soldCash = parseIntSafe($r.find('.sold-cash').val());
-            const soldCredit = parseIntSafe($r.data('sold-credit')); // From data attribute
-            const totalSold = soldCash + soldCredit;
-            const unitPrice = parseFloatSafe($r.data('price'));
-
-            let qtyForBasis = 0;
-            if (thresholdBasis === 'sold') {
-                qtyForBasis = totalSold;
-            } else if (thresholdBasis === 'dispatched') {
-                qtyForBasis = dispatched;
-            } else {
-                qtyForBasis = opening + dispatched;
-            }
-
-            basisValue += qtyForBasis * unitPrice;
-        });
-
-        const multiplier = (basisValue >= threshold) ? 1.0 : 0.5;
-
-        $('#items-table tbody tr').each(function() {
-            const $r = $(this);
-            const product = $r.data('product');
-            const soldCash = parseIntSafe($r.find('.sold-cash').val());
-            const soldCredit = parseIntSafe($r.data('sold-credit')); // From data attribute
-            const totalSold = soldCash + soldCredit;
-            const rate = parseFloatSafe(rates[product] || 0);
-
-            let commission = 0;
-
-            // Only calculate commission if driver is not excluded
-            // FIX: Use the correct variable name
-            if (!excludedBackDebtDrivers.includes(currentDriverName)) {
-                commission = Math.round(totalSold * rate * multiplier);
-            }
-
-            $r.find('.commission-col').text(formatCurrency(commission));
-            $r.find('.commission-value').val(commission);
-        });
-    }
-
-    // Recompute all totals
-    function recomputeTotals() {
-        let calculatedCashReceived = 0;
-        let totalItemsSold = 0;
-        let commissionTotal = 0;
-        let remainingInventoryValue = 0;
-        let creditSalesValue = 0;
-
-        // Loop through each product row
-        $('#items-table tbody tr').each(function() {
-            const $row = $(this);
-            const opening = parseIntSafe($row.find('.opening-stock').data('opening'));
-            const dispatched = parseIntSafe($row.find('.dispatched-qty').data('dispatched'));
-            const soldCash = parseIntSafe($row.find('.sold-cash').val());
-            const soldCredit = parseIntSafe($row.data('sold-credit')); // From data attribute
-            const unitPrice = parseFloatSafe($row.data('price'));
-            const commission = parseFloatSafe($row.find('.commission-value').val());
-
-            const totalSold = soldCash + soldCredit;
-            const remaining = (opening + dispatched) - totalSold;
-
-            calculatedCashReceived += soldCash * unitPrice;
-            creditSalesValue += soldCredit * unitPrice;
-            totalItemsSold += totalSold;
-            commissionTotal += commission;
-            remainingInventoryValue += remaining * unitPrice;
-
-            // Update remaining display
-            $row.find('.remaining-col').text(remaining);
-        });
-
-        // Get actual cash received
-        let actualCashReceived = parseFloatSafe($('#actual_cash_received').val().replace(/,/g, ''));
-        
-        // Calculate total driver expenses
-        const driverExpenses = calculateTotalExpenses();
-
-        // Expected after deductions
-        const expectedAfterDeductions = calculatedCashReceived - commissionTotal - driverExpenses;
-
-        // If no actual cash entered, use expected
-        if (!actualCashReceived || isNaN(actualCashReceived)) {
-            actualCashReceived = expectedAfterDeductions;
-        }
-
-        // ✅ MODIFIED: Exclude back debt for specific drivers in display
-        const currentBackDebt = isExcludedFromBackDebt ? 0 : parseFloatSafe($('#current_back_debt_display').text().replace(/[^\d.-]/g, ''));
-
-        // Update display fields
-        $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
-        $('#commission_total_display').val(formatCurrency(commissionTotal));
-        $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
-        $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
-
-        // ✅ MODIFIED: Balance due excludes back debt for excluded drivers
-        const balanceDue = remainingInventoryValue + creditSalesValue + (isExcludedFromBackDebt ? 0 : currentBackDebt);
-        $('#balance_due_display').val(formatCurrency(balanceDue));
-
-        // Update hidden form fields
-        $('#commission_total').val(commissionTotal.toFixed(2));
-        $('#total_sales_value').val((calculatedCashReceived + creditSalesValue).toFixed(2));
-        $('#total_items_sold').val(totalItemsSold);
-        $('#driver_expenses_total').val(driverExpenses.toFixed(2));
-
-        // ✅ Show/hide back debt section based on driver
-        if (isExcludedFromBackDebt) {
-            $('#back_debt_section').hide();
-            $('#no_back_debt_notice').show();
+        let qtyForBasis = 0;
+        if (thresholdBasis === 'sold') {
+            qtyForBasis = totalSold;
+        } else if (thresholdBasis === 'dispatched') {
+            qtyForBasis = dispatched;
         } else {
-            $('#back_debt_section').show();
-            $('#no_back_debt_notice').hide();
+            qtyForBasis = opening + dispatched;
         }
+
+        basisValue += qtyForBasis * unitPrice;
+    });
+
+    const multiplier = (basisValue >= threshold) ? 1.0 : 0.5;
+
+    $('#items-table tbody tr').each(function() {
+        const $r = $(this);
+        const product = $r.data('product');
+        const soldCash = parseIntSafe($r.find('.sold-cash').val());
+        const soldCredit = parseIntSafe($r.data('sold-credit'));
+        const totalSold = soldCash + soldCredit;
+        const rate = parseFloatSafe(rates[product] || 0);
+
+        let commission = 0;
+
+        // Only calculate commission if driver is not excluded
+        if (!excludedBackDebtDrivers.includes(currentDriverName)) {
+            commission = Math.round(totalSold * rate * multiplier);
+        }
+
+        $r.find('.commission-col').text(formatCurrency(commission));
+        $r.find('.commission-value').val(commission);
+    });
+}
+
+// Recompute all totals - FIXED to work like admin side
+function recomputeTotals() {
+    let calculatedCashReceived = 0;
+    let totalItemsSold = 0;
+    let commissionTotal = 0;
+    let remainingInventoryValue = 0;
+    let creditSalesValue = 0;
+
+    // Loop through each product row
+    $('#items-table tbody tr').each(function() {
+        const $row = $(this);
+        const opening = parseIntSafe($row.find('.opening-stock').val()); // FIX: Use .val()
+        const dispatched = parseIntSafe($row.find('.dispatched-qty').val()); // FIX: Use .val()
+        const soldCash = parseIntSafe($row.find('.sold-cash').val());
+        const soldCredit = parseIntSafe($row.data('sold-credit'));
+        const unitPrice = parseFloatSafe($row.data('price'));
+        const commission = parseFloatSafe($row.find('.commission-value').val());
+
+        const totalSold = soldCash + soldCredit;
+        const remaining = (opening + dispatched) - totalSold;
+
+        calculatedCashReceived += soldCash * unitPrice;
+        creditSalesValue += soldCredit * unitPrice;
+        totalItemsSold += totalSold;
+        commissionTotal += commission;
+        remainingInventoryValue += remaining * unitPrice;
+
+        // Update remaining display
+        $row.find('.remaining-col').text(remaining);
+    });
+
+    // ... rest of the function remains the same ...
+    // Get actual cash received
+    let actualCashReceived = parseFloatSafe($('#actual_cash_received').val().replace(/,/g, ''));
+    
+    // Calculate total driver expenses
+    const driverExpenses = calculateTotalExpenses();
+
+    // Expected after deductions
+    const expectedAfterDeductions = calculatedCashReceived - commissionTotal - driverExpenses;
+
+    // If no actual cash entered, use expected
+    if (!actualCashReceived || isNaN(actualCashReceived)) {
+        actualCashReceived = expectedAfterDeductions;
     }
+
+    // ✅ MODIFIED: Exclude back debt for specific drivers in display
+    const currentBackDebt = isExcludedFromBackDebt ? 0 : parseFloatSafe($('#current_back_debt_display').text().replace(/[^\d.-]/g, ''));
+
+    // Update display fields
+    $('#calculated_cash_received').val(formatCurrency(calculatedCashReceived));
+    $('#commission_total_display').val(formatCurrency(commissionTotal));
+    $('#expected_after_deductions_display').val(formatCurrency(expectedAfterDeductions));
+    $('#amount_driver_should_pay').val(formatCurrency(expectedAfterDeductions));
+
+    // ✅ MODIFIED: Balance due excludes back debt for excluded drivers
+    const balanceDue = remainingInventoryValue + creditSalesValue + (isExcludedFromBackDebt ? 0 : currentBackDebt);
+    $('#balance_due_display').val(formatCurrency(balanceDue));
+
+    // Update hidden form fields
+    $('#commission_total').val(commissionTotal.toFixed(2));
+    $('#total_sales_value').val((calculatedCashReceived + creditSalesValue).toFixed(2));
+    $('#total_items_sold').val(totalItemsSold);
+    $('#driver_expenses_total').val(driverExpenses.toFixed(2));
+
+    // ✅ Show/hide back debt section based on driver
+    if (isExcludedFromBackDebt) {
+        $('#back_debt_section').hide();
+        $('#no_back_debt_notice').show();
+    } else {
+        $('#back_debt_section').show();
+        $('#no_back_debt_notice').hide();
+    }
+}
 
     // Event handlers - only watch cash input
     $('#items-table').on('input change', '.sold-cash', function() {

@@ -29,6 +29,27 @@
     </div>
 </form>
 
+{{-- Add this card to your existing reports page --}}
+<div class="col-md-4 mb-4">
+    <div class="card h-100">
+        <div class="card-body text-center">
+            <i class="bi bi-graph-up display-4 text-primary mb-3"></i>
+            <h5>Financial Reports</h5>
+            <p class="text-muted">Income Statement, Balance Sheet, Cash Flow</p>
+            <div class="btn-group-vertical w-100">
+                <a href="{{ route('admin.reports.financial.index', ['report_type' => 'income_statement']) }}" 
+                   class="btn btn-outline-primary btn-sm mb-2">
+                    View Reports
+                </a>
+                <a href="{{ route('admin.reports.financial.export') }}?report_type=income_statement&period=monthly" 
+                   class="btn btn-success btn-sm">
+                    <i class="bi bi-file-excel me-1"></i> Export All
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-striped table-bordered">
         <thead class="table-dark">

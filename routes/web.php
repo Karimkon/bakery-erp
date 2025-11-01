@@ -196,6 +196,12 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
 
+    // 🟢 FINANCIAL REPORTS - CORRECT STRUCTURE
+    Route::prefix('reports/financial')->name('reports.financial.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\FinancialReportsController::class, 'index'])->name('index');
+        Route::get('/export', [\App\Http\Controllers\Admin\FinancialReportsController::class, 'exportExcel'])->name('export');
+    });
+
     Route::get('dispatches/financial-report', [\App\Http\Controllers\Admin\DispatchController::class, 'financialReport'])
     ->name('dispatches.financial-report');
 Route::get('dispatches/financial-details/{driverId}', [\App\Http\Controllers\Admin\DispatchController::class, 'financialDetails'])
@@ -283,7 +289,7 @@ Route::get('/reports/daily-cash', [\App\Http\Controllers\Admin\DailyCashReportCo
 Route::get('/reports/daily-cash/range', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'dateRange'])->name('reports.daily-cash.range');
 Route::get('/reports/daily-cash/api/summary', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getDailySummary'])->name('reports.daily-cash.api.summary');
 Route::get('/api/cash-balance', [\App\Http\Controllers\Admin\DailyCashReportController::class, 'getCashBalance'])->name('api.cash-balance');
-
+Route::get('/reports/financial', [\App\Http\Controllers\Admin\FinancialReportsController::class, 'index'])->name('reports.financial');
 // Production Approvals - Alternative structure
     Route::get('production-approvals', [ProductionApprovalController::class, 'index'])->name('productions.approval-index');
     Route::get('production-approvals/{production}', [ProductionApprovalController::class, 'show'])->name('productions.approval-show');
@@ -300,6 +306,8 @@ Route::prefix('reports')->name('reports.')->group(function () {
     Route::post('daily-production/send-email', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'sendEmailReport'])->name('daily-production.send-email');
     Route::post('daily-production/auto-send', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'autoSendDailyReport'])->name('daily-production.auto-send');
 });
+
+
 
 });
 
@@ -441,6 +449,8 @@ Route::middleware(['auth','role:kampala_shop'])->prefix('kampala')->name('kampal
     Route::resource('sales', \App\Http\Controllers\Kampala\KampalaSaleController::class);
     Route::resource('bankings', \App\Http\Controllers\Kampala\KampalaBankingController::class);
     Route::get('stock', [\App\Http\Controllers\Kampala\KampalaStockController::class, 'index'])->name('stock.index');
+     Route::resource('expenses', \App\Http\Controllers\Kampala\KampalaExpenseController::class)
+        ->only(['index', 'create', 'store', 'show']);
 });
 
 // ----------------------

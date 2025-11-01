@@ -418,6 +418,14 @@ body {
                class="{{ request()->routeIs('manager.reports.productprofit') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow"></i> Product Profit Analysis
             </a>
+{{-- Financial Reports --}}
+<li class="nav-item">
+    <a class="nav-link {{ request()->is('admin/reports/financial*') ? 'active' : '' }}" 
+       href="/admin/reports/financial">
+        <i class="bi bi-graph-up me-2"></i>
+        Financial Reports
+    </a>
+</li>
 
             <!-- Reports Accordion -->
 <div class="accordion-item">

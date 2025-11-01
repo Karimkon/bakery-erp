@@ -57,7 +57,6 @@
                     <th>Dispatched</th>
                     <th>Driver's Remaining</th>
                     <th>Qty Sold (Cash)</th>
-                    <th>Qty Sold (Credit)</th>
                     <th>Commission (UGX)</th>
                 </tr>
             </thead>
@@ -65,7 +64,7 @@
     @foreach($products as $product => $price)
         @php
             $row = $dispatch->items->firstWhere('product', $product);
-            $opening    = (int) ($openings[$product] ?? 0);
+            $opening = (int) ($row?->opening_stock ?? 0);
             $dispatched = (int) ($row?->dispatched_qty ?? 0);
             $soldCash   = (int) old("items.$product.sold_cash", $row?->sold_cash ?? 0);
             $soldCredit = (int) old("items.$product.sold_credit", $row?->sold_credit ?? 0);
@@ -78,19 +77,13 @@
                 <strong>{{ ucfirst(str_replace('_', ' ', $product)) }}</strong>
                 <div class="text-muted small">UGX {{ number_format($price) }}</div>
             </td>
-       <td>
-    <div class="input-group input-group-sm">
+    <td>
         <input type="number" 
-               class="form-control form-control-sm opening-stock" 
-               name="items[{{ $product }}][opening_stock]"
-               data-original-opening="{{ $opening }}"
-               value="{{ $opening }}" 
-               min="0">
-        <button type="button" class="btn btn-outline-secondary btn-sm unlock-opening" title="Edit Opening">
-            <i class="bi bi-pencil"></i>
-        </button>
-    </div>
-</td>
+            class="form-control form-control-sm opening-stock" 
+            name="items[{{ $product }}][opening_stock]"
+            value="{{ $opening }}" 
+            min="0">
+    </td>
             <td>
                 <input type="number" 
                        class="form-control form-control-sm dispatched-qty" 
@@ -109,13 +102,7 @@
                        min="0" max="{{ $maxSold }}" 
                        data-max="{{ $maxSold }}">
             </td>
-            <td>
-                <input type="number" class="form-control form-control-sm sold-credit"
-                       name="items[{{ $product }}][sold_credit]"
-                       value="{{ $soldCredit }}"
-                       min="0" max="{{ $maxSold }}" 
-                       data-max="{{ $maxSold }}">
-            </td>
+          
             <td class="text-center">
                 <span class="commission-col badge bg-success">{{ number_format($commission, 0) }}</span>
             </td>
@@ -302,6 +289,55 @@
     <a href="{{ route('admin.dispatches.index') }}" class="btn btn-secondary btn-lg mt-4">
         <i class="bi bi-arrow-left"></i> Cancel
     </a>
+
+    <!-- Opening Stock Adjustment Modal -->
+<div class="modal fade" id="openingStockModal" tabindex="-1" aria-labelledby="openingStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="openingStockModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Opening Stock Adjustment
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Note:</strong> Opening stock represents what the driver had from previous dispatch. 
+                    Adjusting this affects historical records but NOT current bakery stock.
+                </div>
+                
+                <div id="modalContent">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6 class="mb-2">Summary:</h6>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Old Opening</th>
+                                <th>New Opening</th>
+                                <th>Difference</th>
+                                <th>Bakery Stock Impact</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalSummary">
+                            <!-- Summary rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmOpeningAdjustment">
+                    <i class="bi bi-check-circle me-2"></i>Confirm Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 </form>
 @endsection
 @push('scripts')
@@ -309,22 +345,6 @@
 $(function () {
     'use strict';
 
-    // Opening stock editing functionality - simplified
-    $(document).on('click', '.unlock-opening', function() {
-        const $input = $(this).closest('.input-group').find('.opening-stock');
-        const isReadonly = $input.prop('readonly');
-        
-        if (isReadonly) {
-            $input.prop('readonly', false).focus().addClass('border-warning');
-            $(this).html('<i class="bi bi-lock"></i>').removeClass('btn-outline-secondary').addClass('btn-warning');
-        } else {
-            $input.prop('readonly', true).removeClass('border-warning');
-            $(this).html('<i class="bi bi-pencil"></i>').removeClass('btn-warning').addClass('btn-outline-secondary');
-            recomputeRow($(this).closest('tr'));
-            recomputeCommissions();
-            recomputeTotals();
-        }
-    });
 
     // Define drivers who should not receive commission
     const excludedDrivers = ['Nakato Kampala', 'Aria Nabadda'];

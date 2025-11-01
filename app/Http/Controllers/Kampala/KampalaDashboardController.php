@@ -7,6 +7,7 @@ use App\Models\KampalaDispatch;
 use App\Models\KampalaSale;
 use App\Models\KampalaStock;
 use App\Models\KampalaBanking;
+use App\Models\KampalaExpense; // Add this
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,7 +17,6 @@ class KampalaDashboardController extends Controller
     {
         $user = Auth::user();
         
-        // Check if user has a shop assigned
         if (!$user->shop_id) {
             Auth::logout();
             return redirect()->route('kampala.login')
@@ -25,7 +25,6 @@ class KampalaDashboardController extends Controller
 
         $shop = $user->kampalaShop;
         
-        // Check if shop exists
         if (!$shop) {
             Auth::logout();
             return redirect()->route('kampala.login')
@@ -37,6 +36,7 @@ class KampalaDashboardController extends Controller
         $todaySales = 0;
         $stockAlerts = 0;
         $availableCash = 0;
+        $totalExpenses = 0;
 
         try {
             // Pending dispatches
@@ -54,14 +54,14 @@ class KampalaDashboardController extends Controller
                 ->where('remaining', '<', 10)
                 ->count();
 
-            // Calculate available cash (total sales - total banking)
+            // Calculate available cash (including expenses)
             $totalSales = KampalaSale::where('shop_id', $shop->id)->sum('total_price');
             $totalBanking = KampalaBanking::where('shop_id', $shop->id)->sum('amount');
+            $totalExpenses = KampalaExpense::where('shop_id', $shop->id)->sum('amount');
             
-            $availableCash = $totalSales - $totalBanking;
+            $availableCash = $totalSales - $totalBanking - $totalExpenses;
 
         } catch (\Exception $e) {
-            // If tables don't exist yet, just continue with zeros
             \Log::error('Dashboard calculation error: ' . $e->getMessage());
         }
 
@@ -70,6 +70,7 @@ class KampalaDashboardController extends Controller
             'todaySales', 
             'stockAlerts',
             'availableCash',
+            'totalExpenses',
             'shop'
         ));
     }

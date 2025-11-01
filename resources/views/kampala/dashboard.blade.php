@@ -29,6 +29,15 @@
         <div class="col-md-3">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body text-center">
+                    <div class="text-muted">Total Expenses</div>
+                    <div class="stat fs-2 text-danger">UGX {{ number_format($totalExpenses ?? 0) }}</div>
+                    <small class="text-muted">Shop expenses</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body text-center">
                     <div class="text-muted">Low Stock Items</div>
                     <div class="stat fs-2 text-danger">{{ $stockAlerts ?? 0 }}</div>
                     <small class="text-muted">Need restocking</small>

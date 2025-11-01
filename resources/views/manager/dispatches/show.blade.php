@@ -62,7 +62,12 @@
             @endphp
             <tr>
                 <td>{{ ucfirst(str_replace('_', ' ', $item->product)) }}</td>
-                <td>{{ number_format($item->opening_stock) }}</td>
+                <td>
+    {{ number_format($openings[$item->product] ?? $item->opening_stock) }}
+    @if(($openings[$item->product] ?? $item->opening_stock) != $item->opening_stock)
+        <br><small class="text-warning">(corrected)</small>
+    @endif
+</td>
                 <td>{{ number_format($item->dispatched_qty) }}</td>
                 <td>{{ number_format($item->sold_cash ?? 0) }}</td>
                 <td>{{ number_format($item->sold_credit ?? 0) }}</td>

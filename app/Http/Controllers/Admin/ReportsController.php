@@ -71,4 +71,10 @@ class ReportsController extends Controller
 
         return $query->latest();
     }
+
+    // Add this method to your existing ReportsController
+    public function financialIndex()
+    {
+        return redirect()->route('admin.reports.financial.index');
+    }
 }

@@ -91,8 +91,8 @@ class DispatchController extends Controller
             return back()->withErrors(['driver_id' => 'Selected user is not a driver'])->withInput();
         }
 
-        // Compute opening from previous day record
-        $openings = $this->computeOpenings((int)$request->driver_id, $request->dispatch_date);
+        $openings = $this->computeOpenings((int)$request->driver_id, $request->dispatch_date, null);
+
 
         $lines = [];
         $totalItemsSold = 0;
@@ -136,10 +136,11 @@ class DispatchController extends Controller
             ];
         }
 
-        $balanceDue = 0;
-        foreach ($lines as $line) {
-            $balanceDue += $line['remaining_qty'] * $line['unit_price'];
-        }
+        // SHOULD BE (SAME AS MANAGER):
+$remainingInventoryValue = collect($lines)->sum(fn($line) => $line['remaining_qty'] * $line['unit_price']);
+$creditSalesValue = collect($lines)->sum(fn($line) => $line['sold_credit'] * $line['unit_price']);
+$driverBackDebt = $driver->back_debt ?? 0;
+$balanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
 
         // Compute commissions
         $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);
@@ -179,6 +180,8 @@ class DispatchController extends Controller
                 }
                 $stock->decrement('quantity', $row['dispatched_qty']);
             }
+
+            $this->updateDriverStock($request->driver_id, $lines);
         });
 
         return redirect()
@@ -193,14 +196,16 @@ class DispatchController extends Controller
     }
 
     public function edit($id)
-    {
-        $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
-        $drivers = User::where('role', 'driver')->get();
-        $products = config('bakery_products');
-        $openings = $this->computeOpenings((int)$dispatch->driver_id, $dispatch->dispatch_date->toDateString(), $dispatch->id);
+{
+    $dispatch = Dispatch::with('items', 'driver', 'expenses')->findOrFail($id);
+    $drivers = User::where('role', 'driver')->get();
+    $products = config('bakery_products');
+    
+    // ✅ Add the third parameter for current dispatch ID
+    $openings = $this->computeOpenings((int)$dispatch->driver_id, $dispatch->dispatch_date->toDateString(), $dispatch->id);
 
-        return view('admin.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
-    }
+    return view('admin.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
+}
 
    public function update(Request $request, $id)
 {
@@ -340,6 +345,7 @@ class DispatchController extends Controller
                 'dispatched_qty' => $newDispatchedQty,
                 'sold_qty'       => $totalSold,
                 'unit_price'     => $unitPrice,
+                'remaining_qty'  => $remaining,
             ];
 
             // Update the item
@@ -455,6 +461,8 @@ class DispatchController extends Controller
             'total_sales' => $totalSalesValue,
             'balance_due' => $balanceDue,
         ]);
+
+        $this->updateDriverStock($dispatch->driver_id, $itemsForCommission);
     });
     } catch (\Throwable $e) {
         \Log::error('Admin dispatch update failed', [
@@ -482,28 +490,66 @@ class DispatchController extends Controller
         ]);
     }
 
-    protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
-    {
-        $products = array_keys(config('bakery_products'));
-        $openings = array_fill_keys($products, 0);
+ protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
+{
+    $products = array_keys(config('bakery_products'));
+    $openings = array_fill_keys($products, 0);
 
-        $lastDispatch = Dispatch::where('driver_id', $driverId)
-            ->where('dispatch_date', '<=', $date)
-            ->when($currentDispatchId, fn($q) => $q->where('id', '<>', $currentDispatchId))
-            ->orderBy('dispatch_date', 'desc')
-            ->orderBy('dispatch_no', 'desc')
-            ->with('items')
-            ->first();
+    \Log::info('=== ADMIN: COMPUTE OPENINGS FROM DRIVER STOCK ===', [
+        'driver_id' => $driverId,
+        'date' => $date,
+        'driver_name' => \App\Models\User::find($driverId)?->name
+    ]);
 
-        if ($lastDispatch) {
-            foreach ($lastDispatch->items as $item) {
-                $openings[$item->product] = $item->remaining_qty;
-            }
+    // ALWAYS use driver stock table
+    $driverStocks = \App\Models\DriverStock::where('driver_id', $driverId)
+        ->get()
+        ->keyBy('product');
+
+    foreach ($products as $product) {
+        if ($driverStocks->has($product)) {
+            $openings[$product] = $driverStocks[$product]->quantity;
         }
-
-        return $openings;
     }
 
+    return $openings;
+}
+
+/**
+ * Update driver stock after dispatch save/update
+ */
+/**
+ * Update driver stock after dispatch save/update - WITH AUTO-DEDUCT
+ */
+private function updateDriverStock(int $driverId, array $items)
+{
+    foreach ($items as $item) {
+        $product = $item['product'] ?? null;
+        $remainingQty = $item['remaining_qty'] ?? 0;
+        
+        if (!$product) {
+            \Log::warning('Missing product in driver stock update', ['item' => $item]);
+            continue;
+        }
+        
+        // AUTO-DEDUCT: When items are sold, driver stock decreases
+        \App\Models\DriverStock::updateOrCreate(
+            [
+                'driver_id' => $driverId,
+                'product' => $product
+            ],
+            [
+                'quantity' => $remainingQty // This reflects actual remaining stock with sales deducted
+            ]
+        );
+        
+        \Log::info('Driver stock updated with auto-deduct', [
+            'driver_id' => $driverId,
+            'product' => $product,
+            'new_quantity' => $remainingQty
+        ]);
+    }
+}
     protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float
     {
         $rates = config('commissions.rates', [

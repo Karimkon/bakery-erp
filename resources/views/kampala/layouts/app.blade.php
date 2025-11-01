@@ -140,6 +140,10 @@
                    href="{{ route('kampala.stock.index') }}">
                     <i class="bi bi-box-seam"></i> Stock
                 </a>
+                <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.expenses.*') ? 'active' : '' }}" 
+                    href="{{ route('kampala.expenses.index') }}">
+                        <i class="bi bi-receipt"></i> Expenses
+                    </a>
                 <a class="list-group-item list-group-item-action {{ request()->routeIs('kampala.bankings.*') ? 'active' : '' }}" 
                    href="{{ route('kampala.bankings.index') }}">
                     <i class="bi bi-bank"></i> Bankings
