@@ -28,6 +28,7 @@ class DashboardController extends Controller
         $chefTarget = ChefTarget::where('chef_id', $userId)->first();
         $todayProduction = Production::where('user_id', $userId)
             ->whereDate('production_date', $today)
+            ->where('status', 'approved') // ✅ Only count approved
             ->sum('total_value');
 
         // Calculate progress
@@ -38,13 +39,9 @@ class DashboardController extends Controller
             $dailyRemaining = max(0, $chefTarget->daily_target - $todayProduction);
         }
 
-        // Save daily progress
-        if ($chefTarget) {
-            $this->saveChefDailyProgress($chefTarget, $todayProduction);
-        }
-
-        // Chart data
+        // Chart data (last 7 days, only approved)
         $chartData = Production::where('user_id', $userId)
+            ->where('status', 'approved')
             ->selectRaw('production_date, SUM(total_value) as value')
             ->groupBy('production_date')
             ->orderBy('production_date', 'asc')
@@ -65,33 +62,31 @@ class DashboardController extends Controller
     }
 
     private function saveChefDailyProgress($chefTarget, $achievedAmount)
-{
-    try {
-        $today = Carbon::today();
-        
-        // ✅ FIX: Use the ACTUAL target from chef_targets
-        $targetAmount = $chefTarget->daily_target;
-        
-        $progressPercentage = $targetAmount > 0 
-            ? round(($achievedAmount / $targetAmount) * 100, 2) 
-            : 0;
+    {
+        try {
+            $today = Carbon::today();
+            $targetAmount = $chefTarget->daily_target;
+            
+            $progressPercentage = $targetAmount > 0 
+                ? round(($achievedAmount / $targetAmount) * 100, 2) 
+                : 0;
 
-        ChefProgressDaily::updateOrCreate(
-            [
-                'chef_id' => $chefTarget->chef_id,
-                'progress_date' => $today->format('Y-m-d')
-            ],
-            [
-                'target_amount' => $targetAmount, // ✅ This should be 2,000,000
-                'achieved_amount' => $achievedAmount,
-                'progress_percentage' => $progressPercentage
-            ]
-        );
-        
-    } catch (\Exception $e) {
-        \Log::error('Error saving chef progress: ' . $e->getMessage());
+            ChefProgressDaily::updateOrCreate(
+                [
+                    'chef_id' => $chefTarget->chef_id,
+                    'progress_date' => $today->format('Y-m-d')
+                ],
+                [
+                    'target_amount' => $targetAmount,
+                    'achieved_amount' => $achievedAmount,
+                    'progress_percentage' => $progressPercentage
+                ]
+            );
+            
+        } catch (\Exception $e) {
+            \Log::error('Error saving chef progress: ' . $e->getMessage());
+        }
     }
-}
 
     public function progressHistory(Request $request)
     {
@@ -103,35 +98,36 @@ class DashboardController extends Controller
                 ->with('error', 'No target set for you. Please contact administrator.');
         }
 
-        // Get date filters
-        $startDate = $request->get('start_date', Carbon::now()->subDays(30)->format('Y-m-d'));
-        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
-        $searchDate = $request->get('search_date');
+        // ✅ NEW: Default to current month instead of last 30 days
+        $now = Carbon::now();
+        $startDate = $request->get('start_date', $now->copy()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', $now->copy()->endOfMonth()->format('Y-m-d'));
         
         // Build query
         $query = ChefProgressDaily::where('chef_id', $chefId)
+            ->whereBetween('progress_date', [$startDate, $endDate])
             ->orderBy('progress_date', 'desc');
         
-        // Apply date filters
-        if ($searchDate) {
-            $query->whereDate('progress_date', $searchDate);
-        } else {
-            $query->whereBetween('progress_date', [$startDate, $endDate]);
-        }
+        $progressHistory = $query->paginate(31); // Show up to 31 days per page
         
-        $progressHistory = $query->paginate(20);
+        // ✅ Calculate summary statistics from the filtered data
+        $allRecords = ChefProgressDaily::where('chef_id', $chefId)
+            ->whereBetween('progress_date', [$startDate, $endDate])
+            ->get();
         
-        // Calculate summary statistics
         $summary = [
-            'total_days' => $progressHistory->total(),
-            'average_progress' => $progressHistory->avg('progress_percentage') ?? 0,
-            'target_achieved_days' => $progressHistory->where('progress_percentage', '>=', 100)->count(),
-            'total_achieved' => $progressHistory->sum('achieved_amount'),
-            'total_target' => $progressHistory->sum('target_amount'),
-            'success_rate' => $progressHistory->total() > 0 
-                ? round(($progressHistory->where('progress_percentage', '>=', 100)->count() / $progressHistory->total()) * 100, 1)
+            'total_days' => $allRecords->count(),
+            'average_progress' => $allRecords->avg('progress_percentage') ?? 0,
+            'target_achieved_days' => $allRecords->where('progress_percentage', '>=', 100)->count(),
+            'total_achieved' => $allRecords->sum('achieved_amount'),
+            'total_target' => $allRecords->sum('target_amount'),
+            'success_rate' => $allRecords->count() > 0 
+                ? round(($allRecords->where('progress_percentage', '>=', 100)->count() / $allRecords->count()) * 100, 1)
                 : 0
         ];
+
+        // ✅ Add month name for display
+        $currentMonth = Carbon::parse($startDate)->format('F Y');
         
         return view('chef.progress_history', compact(
             'chefTarget',
@@ -139,7 +135,7 @@ class DashboardController extends Controller
             'summary',
             'startDate',
             'endDate',
-            'searchDate'
+            'currentMonth'
         ));
     }
 }

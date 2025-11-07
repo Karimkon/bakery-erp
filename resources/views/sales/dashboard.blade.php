@@ -42,6 +42,8 @@
                                     </small>
                                 </div>
                                 @endif
+
+   
                             </div>
                         </div>
                         <div class="col-md-4 text-end">
@@ -71,6 +73,7 @@
                 </div>
             </div>
         </div>
+
         <div class="col-md-3">
             <div class="card shadow-sm">
                 <div class="card-body">
@@ -110,6 +113,12 @@
                         <span>Total Cash Sales:</span>
                         <strong class="text-success">+ UGX {{ number_format($balance['cash_sales']) }}</strong>
                     </div>
+                    @if($balance['damage_revenue'] > 0)
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Damage Sales Revenue:</span>
+                        <strong class="text-warning">+ UGX {{ number_format($balance['damage_revenue']) }}</strong>
+                    </div>
+                    @endif
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span>Bakery Bankings:</span>
                         <strong class="text-danger">- UGX {{ number_format($balance['total_banked']) }}</strong>

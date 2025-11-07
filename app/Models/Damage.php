@@ -12,10 +12,13 @@ class Damage extends Model
         'product',
         'quantity',
         'sold_quantity',
+        'sold_price', // Add this to track sale price
+        'total_sale_amount', // Add this to track total revenue
         'approved_price',
         'notes',
         'photo',
         'status',
+        'sold_at',
     ];
 
     public function manager()

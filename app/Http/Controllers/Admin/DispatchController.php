@@ -137,10 +137,10 @@ class DispatchController extends Controller
         }
 
         // SHOULD BE (SAME AS MANAGER):
-$remainingInventoryValue = collect($lines)->sum(fn($line) => $line['remaining_qty'] * $line['unit_price']);
-$creditSalesValue = collect($lines)->sum(fn($line) => $line['sold_credit'] * $line['unit_price']);
-$driverBackDebt = $driver->back_debt ?? 0;
-$balanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
+        $remainingInventoryValue = collect($lines)->sum(fn($line) => $line['remaining_qty'] * $line['unit_price']);
+        $creditSalesValue = collect($lines)->sum(fn($line) => $line['sold_credit'] * $line['unit_price']);
+        $driverBackDebt = $driver->back_debt ?? 0;
+        $balanceDue = $remainingInventoryValue + $creditSalesValue + $driverBackDebt;
 
         // Compute commissions
         $commissionTotal = $this->computeCommissionStuff($lines, $totalSalesValue);

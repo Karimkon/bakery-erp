@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Production;
 use App\Models\BakeryStock;
 use App\Models\StockHistory;
+use App\Models\ChefProgressDaily; // ✅ ADD THIS
+use App\Models\ChefTarget; // ✅ ADD THIS
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -70,7 +72,6 @@ class ProductionApprovalController extends Controller
                 $production->update([
                     'flour_bags' => $flourKgs / 50,
                     'total_value' => $totalValue,
-                    // Update all product quantities
                     'buns' => (int)($outputs['buns'] ?? 0),
                     'small_breads' => (int)($outputs['small_breads'] ?? 0),
                     'big_breads' => (int)($outputs['big_breads'] ?? 0),
@@ -92,14 +93,13 @@ class ProductionApprovalController extends Controller
                 ]);
 
                 // Update ingredient usages
-                $production->ingredientUsages()->delete(); // Remove old usages
+                $production->ingredientUsages()->delete();
 
                 foreach ($ingredientInputs as $id => $qtyKg) {
                     $qtyKg = (float) $qtyKg;
                     if ($qtyKg <= 0) continue;
 
                     $ingredient = \App\Models\Ingredient::findOrFail($id);
-
                     $cost = $qtyKg * (float) $ingredient->unit_cost;
 
                     $production->ingredientUsages()->create([
@@ -130,11 +130,10 @@ class ProductionApprovalController extends Controller
         $request->validate([
             'product_adjustments' => 'nullable|array',
             'product_adjustments.*' => 'nullable|integer|min:0',
-            'ingredient_adjustments' => 'nullable|array', // Changed from required to nullable
-            'ingredient_adjustments.*' => 'nullable|numeric|min:0', // Changed from required to nullable
+            'ingredient_adjustments' => 'nullable|array',
+            'ingredient_adjustments.*' => 'nullable|numeric|min:0',
         ]);
 
-        // Check if already processed
         if ($production->status !== 'pending') {
             return back()->with('error', 'This production has already been processed.');
         }
@@ -144,21 +143,18 @@ class ProductionApprovalController extends Controller
                 $productAdjustments = $request->input('product_adjustments', []);
                 $ingredientAdjustments = $request->input('ingredient_adjustments', []);
 
-                // ✅ 1. Process ingredient stock deduction with adjustments (only if ingredients exist)
+                // 1. Process ingredient stock deduction with adjustments
                 if ($production->ingredientUsages->count() > 0) {
                     foreach ($production->ingredientUsages as $usage) {
                         $ingredient = $usage->ingredient;
                         $adjustedQty = (float) ($ingredientAdjustments[$usage->id] ?? $usage->quantity);
                         
-                        // Validate adjusted quantity doesn't exceed available stock
                         if ($adjustedQty > (float) $ingredient->stock) {
                             throw new \Exception("Insufficient stock for {$ingredient->name}. Available: {$ingredient->stock} kg, Requested: {$adjustedQty} kg");
                         }
 
-                        // Update the ingredient usage record with adjusted quantity
                         $usage->update(['quantity' => $adjustedQty]);
 
-                        // Deduct from stock
                         $stockBefore = (float) $ingredient->stock;
                         $ingredient->decrement('stock', $adjustedQty);
                         $ingredient->refresh();
@@ -178,7 +174,7 @@ class ProductionApprovalController extends Controller
                     }
                 }
 
-                // ✅ 2. Update production quantities with adjustments
+                // 2. Update production quantities with adjustments
                 $validProducts = [
                     'buns', 'small_breads', 'big_breads', 'donuts',
                     'half_cakes', 'block_cakes', 'slab_cakes',
@@ -187,9 +183,12 @@ class ProductionApprovalController extends Controller
                     'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls'
                 ];
 
-                $updateData = ['status' => 'approved', 'approved_at' => now(), 'approved_by' => auth()->id()];
+                $updateData = [
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approved_by' => auth()->id()
+                ];
                 
-                // Calculate new total value based on adjustments
                 $prices = config('bakery_products');
                 $newTotalValue = 0;
                 
@@ -200,11 +199,9 @@ class ProductionApprovalController extends Controller
                 }
                 
                 $updateData['total_value'] = $newTotalValue;
-
-                // Update production record
                 $production->update($updateData);
 
-                // ✅ 3. Update bakery stock with adjusted quantities
+                // 3. Update bakery stock with adjusted quantities
                 foreach ($validProducts as $product) {
                     $adjustedQty = (int) ($productAdjustments[$product] ?? $production->$product ?? 0);
                     
@@ -217,8 +214,10 @@ class ProductionApprovalController extends Controller
                     }
                 }
 
-                // Mark stock as updated
                 $production->update(['stock_updated' => true]);
+
+                // ✅ 4. UPDATE CHEF PROGRESS (NEW CODE HERE!)
+                $this->updateChefProgress($production);
             });
 
             return redirect()->route('manager.productions.approval.index')
@@ -246,7 +245,48 @@ class ProductionApprovalController extends Controller
             'approved_by' => auth()->id(),
         ]);
 
+        // ✅ Also update progress when rejected (to recalculate without this production)
+        $this->updateChefProgress($production);
+
         return redirect()->route('manager.productions.approval.index')
             ->with('success', 'Production rejected successfully.');
+    }
+
+    // ✅ NEW METHOD: Update chef daily progress
+    protected function updateChefProgress(Production $production)
+    {
+        $chefId = $production->user_id;
+        $date = $production->production_date;
+
+        // Get chef's target
+        $chefTarget = ChefTarget::where('chef_id', $chefId)->first();
+        
+        if (!$chefTarget) {
+            return; // No target set, skip progress tracking
+        }
+
+        // Calculate total achieved for this date (sum of all APPROVED productions)
+        $totalAchieved = Production::where('user_id', $chefId)
+            ->whereDate('production_date', $date)
+            ->where('status', 'approved')
+            ->sum('total_value');
+
+        // Calculate progress percentage
+        $progressPercentage = $chefTarget->daily_target > 0 
+            ? round(($totalAchieved / $chefTarget->daily_target) * 100, 2)
+            : 0;
+
+        // Update or create the progress record
+        ChefProgressDaily::updateOrCreate(
+            [
+                'chef_id' => $chefId,
+                'progress_date' => $date,
+            ],
+            [
+                'target_amount' => $chefTarget->daily_target,
+                'achieved_amount' => $totalAchieved,
+                'progress_percentage' => $progressPercentage,
+            ]
+        );
     }
 }

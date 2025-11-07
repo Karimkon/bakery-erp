@@ -42,37 +42,44 @@
   </div>
 
   <!-- Filters -->
-  <form method="GET" class="row mb-4">
-    <div class="col-md-3 mb-2">
-      <select name="chef_id" class="form-select">
-        <option value="">All Chefs</option>
-        @foreach($chefs as $chef)
-        <option value="{{ $chef->id }}" {{ request('chef_id') == $chef->id ? 'selected' : '' }}>
-          {{ $chef->name }}
-        </option>
-        @endforeach
-      </select>
-    </div>
-    <div class="col-md-3 mb-2">
-      <select name="ingredient_name" class="form-select">
-        <option value="">All Ingredients</option>
-        @foreach($ingredientNames as $name)
-        <option value="{{ $name }}" {{ request('ingredient_name') == $name ? 'selected' : '' }}>
-          {{ ucfirst($name) }}
-        </option>
-        @endforeach
-      </select>
+  <!-- Filters -->
+<form method="GET" class="row mb-4">
+    <div class="col-md-2 mb-2">
+        <select name="chef_id" class="form-select">
+            <option value="">All Chefs</option>
+            @foreach($chefs as $chef)
+            <option value="{{ $chef->id }}" {{ request('chef_id') == $chef->id ? 'selected' : '' }}>
+                {{ $chef->name }}
+            </option>
+            @endforeach
+        </select>
     </div>
     <div class="col-md-2 mb-2">
-      <input type="number" name="min_stock" placeholder="Min Stock" class="form-control" value="{{ request('min_stock') }}">
+        <select name="ingredient_name" class="form-select">
+            <option value="">All Ingredients</option>
+            @foreach($ingredientNames as $name)
+            <option value="{{ $name }}" {{ request('ingredient_name') == $name ? 'selected' : '' }}>
+                {{ ucfirst($name) }}
+            </option>
+            @endforeach
+        </select>
     </div>
     <div class="col-md-2 mb-2">
-      <input type="number" name="max_stock" placeholder="Max Stock" class="form-control" value="{{ request('max_stock') }}">
+        <input type="number" name="min_stock" placeholder="Min Stock" class="form-control" value="{{ request('min_stock') }}">
     </div>
     <div class="col-md-2 mb-2">
-      <button type="submit" class="btn btn-primary w-100">Filter</button>
+        <input type="number" name="max_stock" placeholder="Max Stock" class="form-control" value="{{ request('max_stock') }}">
     </div>
-  </form>
+    <div class="col-md-2 mb-2">
+        <input type="date" name="date_filter" class="form-control" value="{{ request('date_filter') }}">
+    </div>
+    <div class="col-md-2 mb-2">
+        <button type="submit" class="btn btn-primary w-100">Filter</button>
+        @if(request('date_filter'))
+            <a href="{{ route('admin.ingredients.overview') }}" class="btn btn-outline-secondary w-100 mt-1">Clear Date</a>
+        @endif
+    </div>
+</form>
 
   <!-- Ingredient Totals Cards -->
   <div class="row mb-4">

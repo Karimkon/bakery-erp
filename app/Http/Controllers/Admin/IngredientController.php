@@ -18,50 +18,62 @@ class IngredientController extends Controller
         return view('admin.ingredients.index', compact('ingredients'));
     }
 
-    public function overview(Request $request)
-    {
-        $chefId = $request->chef_id;
-        $ingredientName = $request->ingredient_name;
-        $minStock = $request->min_stock;
-        $maxStock = $request->max_stock;
+   public function overview(Request $request)
+{
+    $chefId = $request->chef_id;
+    $ingredientName = $request->ingredient_name;
+    $minStock = $request->min_stock;
+    $maxStock = $request->max_stock;
+    $dateFilter = $request->date_filter;
 
-        $query = Ingredient::query();
+    $query = Ingredient::query();
 
-        if ($chefId) $query->where('chef_id', $chefId);
-        if ($ingredientName) $query->where('name', $ingredientName);
-        if ($minStock !== null) $query->where('stock', '>=', $minStock);
-        if ($maxStock !== null) $query->where('stock', '<=', $maxStock);
-
-        $overview = $query
-            ->select(
-                'name', 'unit',
-                DB::raw('SUM(stock) as total_qty'),
-                DB::raw('AVG(unit_cost) as avg_cost'),
-                DB::raw('SUM(stock * unit_cost) as total_value'),
-                DB::raw('COUNT(DISTINCT chef_id) as chef_count'),
-                DB::raw('MAX(updated_at) as last_updated')
-            )
-            ->groupBy('name', 'unit')
-            ->orderBy('name')
-            ->get();
-
-        $summary = [
-            'total_items' => Ingredient::distinct('name')->count(),
-            'total_stock_value' => Ingredient::sum(DB::raw('stock * unit_cost')),
-            'low_stock' => Ingredient::where('stock', '<', 5)->count(),
-            'total_chefs' => User::where('role', 'chef')->count(),
-        ];
-
-        $totals = Ingredient::select('name', DB::raw('SUM(stock) as total_qty'), 'unit')
-            ->groupBy('name', 'unit')
-            ->get();
-
-        $chefs = User::where('role', 'chef')->get();
-        $ingredientNames = Ingredient::distinct()->pluck('name');
-
-        return view('admin.ingredients.overview', compact('overview', 'summary', 'totals', 'chefs', 'ingredientNames'));
+    if ($chefId) $query->where('chef_id', $chefId);
+    if ($ingredientName) $query->where('name', $ingredientName);
+    if ($minStock !== null) $query->where('stock', '>=', $minStock);
+    if ($maxStock !== null) $query->where('stock', '<=', $maxStock);
+    
+    // Add date filter - shows ingredients that existed on that date
+    if ($dateFilter) {
+        $query->whereDate('created_at', '<=', $dateFilter)
+              ->where(function($q) use ($dateFilter) {
+                  $q->whereDate('updated_at', '>=', $dateFilter)
+                    ->orWhereNull('updated_at');
+              });
     }
 
+    $overview = $query
+        ->select(
+            'name', 'unit',
+            DB::raw('SUM(stock) as total_qty'),
+            DB::raw('AVG(unit_cost) as avg_cost'),
+            DB::raw('SUM(stock * unit_cost) as total_value'),
+            DB::raw('COUNT(DISTINCT chef_id) as chef_count'),
+            DB::raw('MAX(updated_at) as last_updated')
+        )
+        ->groupBy('name', 'unit')
+        ->orderBy('name')
+        ->get();
+
+    $summary = [
+        'total_items' => $query->distinct('name')->count('name'),
+        'total_stock_value' => $overview->sum('total_value'),
+        'low_stock' => $query->clone()->where('stock', '<', 5)->count(),
+        'total_chefs' => User::where('role', 'chef')->count(),
+    ];
+
+    $totals = $query->clone()
+        ->select('name', DB::raw('SUM(stock) as total_qty'), 'unit')
+        ->groupBy('name', 'unit')
+        ->get();
+
+    $chefs = User::where('role', 'chef')->get();
+    $ingredientNames = Ingredient::distinct()->pluck('name');
+
+    return view('admin.ingredients.overview', compact(
+        'overview', 'summary', 'totals', 'chefs', 'ingredientNames', 'dateFilter'
+    ));
+}
     public function create()
     {
         $chefs = User::where('role', 'chef')->get();
