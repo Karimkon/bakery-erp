@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Kampala;
 use App\Http\Controllers\Controller;
 use App\Models\KampalaDispatch;
 use App\Models\KampalaStock;
+use App\Models\BakeryStock; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,68 @@ class KampalaDispatchController extends Controller
 
         return view('kampala.dispatches.index', compact('dispatches'));
     }
+
+     public function destroy($id)
+    {
+        $user = Auth::user();
+        
+        // Find the dispatch manually
+        $kampalaDispatch = KampalaDispatch::with('items')->find($id);
+        
+        if (!$kampalaDispatch) {
+            return back()->with('error', 'Dispatch not found.');
+        }
+
+        \Log::info('DELETE ATTEMPT', [
+            'dispatch_id' => $kampalaDispatch->id,
+            'status' => $kampalaDispatch->status,
+            'user_id' => $user->id
+        ]);
+
+        // Allow any kampala_shop user to delete pending dispatches
+        if ($user->role !== 'kampala_shop') {
+            abort(403, 'Only Kampala shop staff can delete dispatches.');
+        }
+
+        // Only allow deletion of pending dispatches
+        if ($kampalaDispatch->status !== 'pending') {
+            return back()->with('error', "Only pending dispatches can be deleted. Current status: {$kampalaDispatch->status}");
+        }
+
+        try {
+            DB::transaction(function () use ($kampalaDispatch) {
+                // ✅ RESTORE BAKERY STOCK
+                foreach ($kampalaDispatch->items as $item) {
+                    $bakeryStock = BakeryStock::where('product', $item->product_type)->first();
+                    if ($bakeryStock) {
+                        $oldQuantity = $bakeryStock->quantity;
+                        $bakeryStock->increment('quantity', $item->quantity);
+                        
+                        \Log::info('Stock restored', [
+                            'product' => $item->product_type,
+                            'restored_qty' => $item->quantity,
+                            'old_stock' => $oldQuantity,
+                            'new_stock' => $bakeryStock->quantity
+                        ]);
+                    }
+                }
+
+                // Delete the dispatch
+                $kampalaDispatch->delete();
+            });
+
+            return redirect()->route('kampala.dispatches.index')
+                ->with('success', 'Dispatch deleted successfully! Bakery stock restored.');
+
+        } catch (\Exception $e) {
+            \Log::error('Delete error', [
+                'error' => $e->getMessage(),
+                'dispatch_id' => $kampalaDispatch->id
+            ]);
+            return back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
 
     public function show(KampalaDispatch $kampalaDispatch)
 {

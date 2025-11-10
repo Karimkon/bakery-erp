@@ -444,7 +444,7 @@ Route::post('damages/{damage}/sold', [\App\Http\Controllers\Manager\ManagerDamag
     // Kampala shop routes (for Aria & Nakato)
 Route::middleware(['auth','role:kampala_shop'])->prefix('kampala')->name('kampala.')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Kampala\KampalaDashboardController::class, 'index'])->name('dashboard');
-    Route::resource('dispatches', \App\Http\Controllers\Kampala\KampalaDispatchController::class)->only(['index', 'show']);
+    Route::resource('dispatches', \App\Http\Controllers\Kampala\KampalaDispatchController::class)->only(['index', 'show', 'destroy']);
     Route::post('dispatches/{kampalaDispatch}/receive', [\App\Http\Controllers\Kampala\KampalaDispatchController::class, 'receive'])->name('dispatches.receive');
     Route::resource('sales', \App\Http\Controllers\Kampala\KampalaSaleController::class);
     Route::resource('bankings', \App\Http\Controllers\Kampala\KampalaBankingController::class);

@@ -47,4 +47,15 @@ class KampalaDispatch extends Model
     {
         return $this->hasMany(KampalaDispatchItem::class, 'dispatch_id');
     }
+
+    // Add this for cascade delete
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($dispatch) {
+            // This will automatically delete all related items
+            $dispatch->items()->delete();
+        });
+    }
 }

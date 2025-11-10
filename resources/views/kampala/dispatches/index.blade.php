@@ -79,17 +79,52 @@
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('kampala.dispatches.show', $dispatch->id) }}" 
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-eye me-1"></i>View
-                            </a>
-                            @if($dispatch->status == 'pending')
-                                <a href="{{ route('kampala.dispatches.show', $dispatch->id) }}#receive" 
-                                   class="btn btn-sm btn-success">
-                                    <i class="bi bi-check-circle me-1"></i>Receive
-                                </a>
-                            @endif
-                        </td>
+    @if($dispatch->status == 'pending')
+        <span class="badge bg-warning text-dark">
+            <i class="bi bi-clock me-1"></i>Pending
+        </span>
+        <br>
+        <small class="text-muted">Can be deleted</small>
+    @elseif($dispatch->status == 'received')
+        <span class="badge bg-success">
+            <i class="bi bi-check-circle me-1"></i>Received
+        </span>
+        <br>
+        <small class="text-muted">Cannot delete</small>
+    @elseif($dispatch->status == 'partial')
+        <span class="badge bg-primary">
+            <i class="bi bi-exclamation-circle me-1"></i>Partial
+        </span>
+    @else
+        <span class="badge bg-secondary">{{ $dispatch->status }}</span>
+    @endif
+</td>
+<td>
+    <div class="btn-group btn-group-sm">
+        <a href="{{ route('kampala.dispatches.show', $dispatch->id) }}" 
+           class="btn btn-outline-primary">
+            <i class="bi bi-eye"></i>
+        </a>
+        
+        @if($dispatch->status == 'pending')
+            <a href="{{ route('kampala.dispatches.show', $dispatch->id) }}#receive" 
+               class="btn btn-success">
+                <i class="bi bi-check-circle"></i>
+            </a>
+            
+            <form action="{{ route('kampala.dispatches.destroy', $dispatch->id) }}" 
+                  method="POST" 
+                  class="d-inline"
+                  onsubmit="return confirm('Delete this pending dispatch and restore bakery stock?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+        @endif
+    </div>
+</td>
                     </tr>
                     @empty
                     <tr>
