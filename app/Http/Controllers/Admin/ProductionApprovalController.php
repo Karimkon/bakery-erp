@@ -88,7 +88,7 @@ class ProductionApprovalController extends Controller
                     'half_cakes', 'block_cakes', 'slab_cakes',
                     'quarter_breads', 'birthday_cakes30k', 'birthday_cakes50k',
                     'mandazis', 'musiba_tayi', 'scornes', 'chapatys',
-                    'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls'
+                    'toasted_bread', 'spring_donuts', 'cream_donuts', 'cinnamon_rolls', 'marble_cakes'
                 ];
 
                 $updateData = ['status' => 'approved', 'approved_at' => now(), 'approved_by' => auth()->id()];

@@ -121,6 +121,7 @@ class ProductionController extends Controller
                     'spring_donuts'     => (int)($outputs['spring_donuts'] ?? 0),
                     'cream_donuts'      => (int)($outputs['cream_donuts'] ?? 0),
                     'cinnamon_rolls'    => (int)($outputs['cinnamon_rolls'] ?? 0),
+                    'marble_cakes'      => (int)($outputs['marble_cakes'] ?? 0),
                 ]);
 
                 // ✅ MODIFIED: Track ingredient usage but DON'T deduct from stock yet

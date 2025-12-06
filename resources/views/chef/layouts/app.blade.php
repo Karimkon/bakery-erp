@@ -127,6 +127,13 @@
             <i class="bi bi-journal-text"></i> My Productions
         </a>
 
+         <!-- Add Ingredients Link -->
+        <a href="{{ route('chef.ingredients.index') }}" 
+        onclick="document.getElementById('ingredients-section').scrollIntoView({behavior: 'smooth'})"
+        class="text-white-50">
+            <i class="bi bi-box-seam"></i> My Ingredients
+        </a>
+        
         <form method="POST" action="{{ route('logout') }}" class="mt-3">
             @csrf
             <button class="btn btn-danger w-100">

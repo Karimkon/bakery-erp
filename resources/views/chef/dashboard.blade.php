@@ -17,6 +17,94 @@
         @endif
     </div>
 
+    <!-- Ingredients Remaining Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i> My Ingredients Stock</h5>
+                </div>
+                <div class="card-body">
+                    @if($ingredients->isEmpty())
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No ingredients assigned to you. Contact manager.
+                        </div>
+                    @else
+                        <div class="row g-3">
+                            @foreach($ingredients as $ingredient)
+                                <div class="col-md-3 col-sm-4 col-6">
+                                    <div class="card border-start border-3 
+                                        {{ $ingredient->stock <= 0 ? 'border-danger' : 
+                                           ($ingredient->stock < 10 ? 'border-warning' : 'border-success') }} 
+                                        h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-truncate">{{ $ingredient->name }}</h6>
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="text-muted">Current Stock:</span>
+                                                <span class="fw-bold {{ $ingredient->stock <= 0 ? 'text-danger' : 
+                                                    ($ingredient->stock < 10 ? 'text-warning' : 'text-success') }}">
+                                                    {{ number_format($ingredient->stock, 2) }}
+                                                </span>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="text-muted">Unit:</span>
+                                                <span class="badge bg-secondary">{{ $ingredient->unit }}</span>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <span class="text-muted">Unit Cost:</span>
+                                                <span class="badge bg-primary">UGX {{ number_format($ingredient->unit_cost) }}</span>
+                                            </div>
+                                            <div class="mt-2">
+                                                @if($ingredient->stock <= 0)
+                                                    <span class="badge bg-danger">Out of Stock</span>
+                                                @elseif($ingredient->stock < 10)
+                                                    <span class="badge bg-warning text-dark">Low Stock</span>
+                                                @else
+                                                    <span class="badge bg-success">Available</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        
+                        <!-- Stock Summary -->
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h3 class="text-primary mb-1">{{ $totalIngredients }}</h3>
+                                        <small class="text-muted">Total Ingredients</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h3 class="text-success mb-1">{{ $availableIngredients }}</h3>
+                                        <small class="text-muted">Available</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h3 class="text-warning mb-1">{{ $lowStockIngredients }}</h3>
+                                        <small class="text-muted">Low Stock</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <h3 class="text-danger mb-1">{{ $outOfStockIngredients }}</h3>
+                                        <small class="text-muted">Out of Stock</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Stats Cards -->
     <div class="row g-3 mb-4">
         <div class="col-md-3 col-6">

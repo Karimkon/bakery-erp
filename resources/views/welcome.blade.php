@@ -392,6 +392,15 @@
                     <div class="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
                         🔒 Secure & Reliable
                     </div>
+
+                    <!-- Manual Link - Centered below features -->
+    <div class="mt-6 text-center">
+        <a href="/manual" 
+           class="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+            <span>📖</span>
+            View User Manual & Guides
+        </a>
+    </div>
                 </div>
             </div>
             

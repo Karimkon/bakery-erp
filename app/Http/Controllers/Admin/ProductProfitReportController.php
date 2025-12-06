@@ -41,6 +41,7 @@ class ProductProfitReportController extends Controller
                 'spring_donuts' => 2000,
                 'cream_donuts' => 2500,
                 'cinnamon_rolls' => 3000,
+                'marble_cakes' => 2500,
                 'musiba_tayi' => 800,
                 'scornes' => 1200,
             ];

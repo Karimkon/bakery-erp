@@ -222,17 +222,17 @@ class ManagerDispatchController extends Controller
         return response()->json(['success' => true, 'openings' => $openings]);
     }
 
-   // In Manager edit() method:
 public function edit($id)
 {
     $dispatch = Dispatch::with('items', 'driver')->findOrFail($id);
     $drivers = User::where('role', 'driver')->get();
     $products = config('bakery_products');
     
-    // ✅ FIX: Use the historical opening stock from dispatch_items
+    // ✅ FIX: Use the ORIGINAL opening stock from dispatch_items
+    // NOT the current driver_stocks
     $openings = [];
     foreach ($dispatch->items as $item) {
-        $openings[$item->product] = $item->opening_stock;
+        $openings[$item->product] = $item->opening_stock; // Historical value
     }
 
     return view('manager.dispatches.edit', compact('dispatch', 'drivers', 'products', 'openings'));
@@ -393,7 +393,8 @@ public function update(Request $request, $id)
 
         // ✅ FIXED: Balance due calculation
         $currentDriverBackDebt = $isExcludedFromBackDebt ? 0 : ($dispatch->driver->fresh()->back_debt ?? 0);
-        $balanceDue = $remainingInventoryValue + $creditSalesValue + $currentDriverBackDebt;
+        $balanceDue = $remainingInventoryValue + $creditSalesValue;
+
 
         // Update dispatch with ALL financial fields
         $dispatch->update([
@@ -415,7 +416,7 @@ public function update(Request $request, $id)
 }
 
 /**
- * ✅ FIXED: Correct back debt adjustment calculation
+ * ✅ FIXED: Back debt should only adjust based on cash payment differences
  */
 protected function calculateBackDebtAdjustment(
     $oldCashReceived, 
@@ -423,27 +424,27 @@ protected function calculateBackDebtAdjustment(
     $newActualCashReceived, 
     $newExpectedAfterDeductions
 ) {
-    // OLD situation: What driver should have paid vs what they actually paid
-    $oldDifference = $oldExpectedAfterDeductions - $oldCashReceived;
+    // Ignore old values - only care about the NEW expected vs actual
+    $expectedPayment = $newExpectedAfterDeductions;
+    $actualPayment = $newActualCashReceived;
     
-    // NEW situation: What driver should pay vs what they actually pay
-    $newDifference = $newExpectedAfterDeductions - $newActualCashReceived;
-    
-    // The adjustment is the change in the difference
-    // Positive = driver owes more, Negative = driver owes less
-    return $newDifference - $oldDifference;
+    // Positive = driver underpaid (add to back debt)
+    // Negative = driver overpaid (reduce back debt)
+    return $expectedPayment - $actualPayment;
 }
 
 /**
- * ✅ FIXED: Better back debt adjustment detection
+ * ✅ FIXED: Only adjust back debt when payment changes
  */
 protected function shouldAdjustBackDebt($oldCashReceived, $newActualCashReceived, $oldExpectedAfterDeductions, $newExpectedAfterDeductions)
 {
-    $cashChanged = abs($oldCashReceived - $newActualCashReceived) > 0.01;
+    $paymentChanged = abs($oldCashReceived - $newActualCashReceived) > 0.01;
     $expectedChanged = abs($oldExpectedAfterDeductions - $newExpectedAfterDeductions) > 0.01;
     
-    return $cashChanged || $expectedChanged;
-} 
+    // Only adjust if either the payment amount OR expected amount changed
+    return $paymentChanged || $expectedChanged;
+}
+
 /**
  * Record back debt transaction for audit trail
  */
@@ -554,19 +555,13 @@ protected function getActualCashReceived(Request $request, $expectedAfterDeducti
     // ✅ No upper limit - trust the manager knows what they're doing
     return $actualCashReceived;
 }
-   // IN MANAGER DISPATCH CONTROLLER - REPLACE THIS:
-protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
+ protected function computeOpenings(int $driverId, string $date, ?int $currentDispatchId = null): array
 {
     $products = array_keys(config('bakery_products'));
     $openings = array_fill_keys($products, 0);
 
-    \Log::info('=== MANAGER: COMPUTE OPENINGS FROM DRIVER STOCK ===', [
-        'driver_id' => $driverId,
-        'date' => $date,
-        'driver_name' => \App\Models\User::find($driverId)?->name
-    ]);
-
-    // ALWAYS use driver stock table (SAME AS ADMIN)
+    // 🚨 CRITICAL FIX: ALWAYS use driver_stocks for BOTH create and edit
+    // This ensures consistency between operations
     $driverStocks = \App\Models\DriverStock::where('driver_id', $driverId)
         ->get()
         ->keyBy('product');
@@ -577,55 +572,36 @@ protected function computeOpenings(int $driverId, string $date, ?int $currentDis
         }
     }
 
-    \Log::info('MANAGER FINAL OPENINGS', ['openings' => $openings]);
-    return $openings;
-}
-    /**
-     * ✅ FIXED: Update driver stock after dispatch save/update
-     * Auto-deduct: When items are sold, driver stock decreases to remaining quantity
-     */
-    /**
- * Update driver stock after dispatch save/update
- */
-private function updateDriverStock(int $driverId, array $items)
-{
-    \Log::info('=== UPDATING DRIVER STOCK ===', [
+    \Log::info('COMPUTE OPENINGS - ALWAYS USING DRIVER STOCKS', [
         'driver_id' => $driverId,
-        'items_count' => count($items)
+        'current_dispatch_id' => $currentDispatchId,
+        'openings' => $openings
     ]);
 
+    return $openings;
+}
+ 
+private function updateDriverStock(int $driverId, array $items)
+{
     foreach ($items as $item) {
         $product = $item['product'] ?? null;
         $remainingQty = $item['remaining_qty'] ?? 0;
         
-        if (!$product) {
-            \Log::warning('Missing product in driver stock update', ['item' => $item]);
-            continue;
-        }
+        if (!$product) continue;
         
-        // Update driver stock with remaining quantity
-        $driverStock = \App\Models\DriverStock::updateOrCreate(
-            [
-                'driver_id' => $driverId,
-                'product' => $product
-            ],
-            [
-                'quantity' => $remainingQty
-            ]
+        // ✅ FIX: Update driver stock to the remaining quantity
+        // This ensures tomorrow's opening stock will be correct
+        \App\Models\DriverStock::updateOrCreate(
+            ['driver_id' => $driverId, 'product' => $product],
+            ['quantity' => $remainingQty]
         );
         
-        \Log::info('Driver stock updated', [
+        \Log::info('Driver stock updated for edit', [
             'driver_id' => $driverId,
             'product' => $product,
-            'old_quantity' => $driverStock->getOriginal('quantity'),
-            'new_quantity' => $remainingQty,
-            'opening' => $item['opening_stock'] ?? 0,
-            'dispatched' => $item['dispatched_qty'] ?? 0,
-            'sold' => $item['sold_qty'] ?? 0
+            'remaining_qty' => $remainingQty
         ]);
     }
-
-    \Log::info('=== DRIVER STOCK UPDATE COMPLETE ===');
 }
     protected function computeCommissionStuff(array &$lines, float $totalSalesValue): float
     {
@@ -684,71 +660,145 @@ private function updateDriverStock(int $driverId, array $items)
     return view('manager.dispatches.history', compact('driver', 'dispatches'));
 }
 
-public function financialReport(Request $request)
-{
-    $driverId = $request->input('driver_id');
-    $dateFrom = $request->input('date_from');
-    $dateTo = $request->input('date_to');
+ public function financialReport(Request $request)
+    {
+        $driverId = $request->input('driver_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
 
-    $drivers = User::where('role', 'driver')->orderBy('name')->get();
-    $reportData = [];
-    
-    if ($driverId && $dateFrom && $dateTo) {
-        // Get total sales and ACTUAL cash received from dispatches
-        $salesData = Dispatch::where('driver_id', $driverId)
-            ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
-            ->select(
-                DB::raw('SUM(total_sales_value) as total_sales'),
-                DB::raw('SUM(cash_received) as total_actual_cash_received'),
-                DB::raw('SUM(commission_total) as total_commission'),
-                DB::raw('SUM(expected_cash_after_deductions) as total_expected_after_deductions')
-            )
-            ->first();
-
-        // Get total driver expenses from driver_expenses table
-        $expensesData = DriverExpense::where('driver_id', $driverId)
-            ->whereHas('dispatch', function($query) use ($dateFrom, $dateTo) {
-                $query->whereBetween('dispatch_date', [$dateFrom, $dateTo]);
-            })
-            ->select(DB::raw('SUM(amount) as total_expenses'))
-            ->first();
-
-        // Get total bank deposits
-        $depositsData = BankDeposit::where('user_id', $driverId)
-            ->whereBetween('deposit_date', [$dateFrom, $dateTo])
-            ->select(DB::raw('SUM(amount) as total_deposits'))
-            ->first();
-
-        $driver = User::find($driverId);
-
-        $totalActualCash = $salesData->total_actual_cash_received ?? 0;
-        $totalCommission = $salesData->total_commission ?? 0;
-        $totalExpenses = $expensesData->total_expenses ?? 0;
-        $totalExpectedAfterDeductions = $salesData->total_expected_after_deductions ?? 0;
+        $drivers = User::where('role', 'driver')->orderBy('name')->get();
+        $reportData = [];
         
-        // If expected_after_deductions is not available, calculate it
-        if ($totalExpectedAfterDeductions == 0) {
+        if ($driverId && $dateFrom && $dateTo) {
+            // FIXED: Get total ACTUAL cash received from dispatches
+            $salesData = Dispatch::where('driver_id', $driverId)
+                ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
+                ->select(
+                    DB::raw('SUM(total_sales_value) as total_sales'),
+                    DB::raw('SUM(cash_received) as total_actual_cash_received'), // ACTUAL cash
+                    DB::raw('SUM(commission_total) as total_commission'),
+                    DB::raw('SUM(driver_expenses) as total_driver_expenses') // From dispatch table
+                )
+                ->first();
+
+            // FIXED: Also get expenses from driver_expenses table for accuracy
+            $expensesData = DB::table('driver_expenses')
+                ->join('dispatches', 'driver_expenses.dispatch_id', '=', 'dispatches.id')
+                ->where('dispatches.driver_id', $driverId)
+                ->whereBetween('dispatches.dispatch_date', [$dateFrom, $dateTo])
+                ->select(DB::raw('SUM(driver_expenses.amount) as total_expenses'))
+                ->first();
+
+            // Get total bank deposits
+            $depositsData = BankDeposit::where('user_id', $driverId)
+                ->whereBetween('deposit_date', [$dateFrom, $dateTo])
+                ->select(DB::raw('SUM(amount) as total_deposits'))
+                ->first();
+
+            $driver = User::find($driverId);
+
+            // FIXED: Correct calculations
+            $totalActualCash = $salesData->total_actual_cash_received ?? 0;
+            $totalCommission = $salesData->total_commission ?? 0;
+            
+            // Use the more accurate expenses calculation
+            $totalExpenses = $expensesData->total_expenses ?? ($salesData->total_driver_expenses ?? 0);
+            
+            // FIXED: Correct expected to bank calculation
             $totalExpectedAfterDeductions = $totalActualCash - $totalCommission - $totalExpenses;
-        }
-        
-        $totalDeposits = $depositsData->total_deposits ?? 0;
-        $shortageExcess = $totalExpectedAfterDeductions - $totalDeposits;
+            
+            $totalDeposits = $depositsData->total_deposits ?? 0;
+            $shortageExcess = $totalExpectedAfterDeductions - $totalDeposits;
 
-        $reportData = [
-            'driver' => $driver,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-            'total_sales' => $salesData->total_sales ?? 0,
-            'total_actual_cash_received' => $totalActualCash,
-            'total_commission' => $totalCommission,
-            'total_expenses' => $totalExpenses,
-            'total_expected_after_deductions' => $totalExpectedAfterDeductions,
-            'total_deposits' => $totalDeposits,
-            'shortage_excess' => $shortageExcess
-        ];
+            $reportData = [
+                'driver' => $driver,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'total_sales' => $salesData->total_sales ?? 0,
+                'total_actual_cash_received' => $totalActualCash,
+                'total_commission' => $totalCommission,
+                'total_expenses' => $totalExpenses,
+                'total_expected_after_deductions' => $totalExpectedAfterDeductions,
+                'total_deposits' => $totalDeposits,
+                'shortage_excess' => $shortageExcess
+            ];
+        }
+
+        return view('manager.dispatches.financial-report', compact('drivers', 'reportData'));
     }
 
-    return view('manager.dispatches.financial-report', compact('drivers', 'reportData'));
+    /**
+     * NEW: Debug function to see the actual numbers
+     */
+    public function financialDebug(Request $request)
+    {
+        $driverId = $request->input('driver_id', 18); // Ssengonze Umar
+        $dateFrom = $request->input('date_from', '2025-11-01');
+        $dateTo = $request->input('date_to', '2025-11-15');
+
+        // Get all dispatches with details
+        $dispatches = Dispatch::with(['expenses', 'items'])
+            ->where('driver_id', $driverId)
+            ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
+            ->get();
+
+        $debugData = [];
+        $totalCalculated = 0;
+
+        foreach ($dispatches as $dispatch) {
+            $expenses = $dispatch->expenses->sum('amount');
+            $expected = $dispatch->cash_received - $dispatch->commission_total - $expenses;
+            $totalCalculated += $expected;
+
+            $debugData[] = [
+                'date' => $dispatch->dispatch_date,
+                'dispatch_no' => $dispatch->dispatch_no,
+                'cash_received' => $dispatch->cash_received,
+                'commission' => $dispatch->commission_total,
+                'expenses' => $expenses,
+                'expected_to_bank' => $expected,
+                'calculated' => $dispatch->cash_received - $dispatch->commission_total - $expenses
+            ];
+        }
+
+        // Get bank deposits
+        $deposits = BankDeposit::where('user_id', $driverId)
+            ->whereBetween('deposit_date', [$dateFrom, $dateTo])
+            ->get();
+
+        return response()->json([
+            'dispatches_debug' => $debugData,
+            'total_calculated_expected' => $totalCalculated,
+            'bank_deposits' => $deposits,
+            'total_deposits' => $deposits->sum('amount')
+        ]);
+    }
+
+    // Add this to your ManagerDispatchController
+public function emergencyCashAudit($driverId)
+{
+    $driver = User::findOrFail($driverId);
+    
+    // Get last 7 days of dispatches
+    $recentDispatches = Dispatch::where('driver_id', $driverId)
+        ->where('dispatch_date', '>=', now()->subDays(7))
+        ->with('expenses')
+        ->get();
+    
+    // Calculate what should be deposited vs what was deposited
+    $expectedDeposits = $recentDispatches->sum(function($dispatch) {
+        return $dispatch->cash_received - $dispatch->commission_total - $dispatch->expenses->sum('amount');
+    });
+    
+    $actualDeposits = BankDeposit::where('user_id', $driverId)
+        ->where('deposit_date', '>=', now()->subDays(7))
+        ->sum('amount');
+    
+    $missingCash = $expectedDeposits - $actualDeposits;
+    
+    return view('manager.dispatches.emergency-audit', compact(
+        'driver', 'recentDispatches', 'expectedDeposits', 'actualDeposits', 'missingCash'
+    ));
 }
 
 public function financialDetails(Request $request, $driverId)

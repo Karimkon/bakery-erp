@@ -53,35 +53,38 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <div class="card border-success mb-3">
-                            <div class="card-header bg-success text-white">
-                                <strong>Driver Settlement Summary</strong>
-                            </div>
-                            <div class="card-body">
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td><strong>Actual Cash Received:</strong></td>
-                                        <td class="text-end">{{ number_format($reportData['total_actual_cash_received'], 0) }} UGX</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Total Commission:</strong></td>
-                                        <td class="text-end">- {{ number_format($reportData['total_commission'], 0) }} UGX</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Total Expenses:</strong></td>
-                                        <td class="text-end">- {{ number_format($reportData['total_expenses'], 0) }} UGX</td>
-                                    </tr>
-                                    <tr class="table-warning fw-bold">
-                                        <td><strong>Expected to Bank:</strong></td>
-                                        <td class="text-end">{{ number_format($reportData['total_expected_after_deductions'], 0) }} UGX</td>
-                                    </tr>
-                                </table>
-                                <small class="text-muted">
-                                    <i class="bi bi-info-circle"></i> 
-                                    Expected to Bank = Actual Cash Received - Commission - Expenses
-                                </small>
-                            </div>
-                        </div>
+                        <!-- In your blade file, replace the calculation display -->
+<div class="card border-success mb-3">
+    <div class="card-header bg-success text-white">
+        <strong>Driver Settlement Summary</strong>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <tr>
+                <td><strong>Actual Cash Received:</strong></td>
+                <td class="text-end">{{ number_format($reportData['total_actual_cash_received'], 0) }} UGX</td>
+            </tr>
+            <tr>
+                <td><strong>Total Commission:</strong></td>
+                <td class="text-end">- {{ number_format($reportData['total_commission'], 0) }} UGX</td>
+            </tr>
+            <tr>
+                <td><strong>Total Expenses:</strong></td>
+                <td class="text-end">- {{ number_format($reportData['total_expenses'], 0) }} UGX</td>
+            </tr>
+            <tr class="table-warning fw-bold">
+                <td><strong>Expected to Bank:</strong></td>
+                <td class="text-end">{{ number_format($reportData['total_expected_after_deductions'], 0) }} UGX</td>
+            </tr>
+        </table>
+        <small class="text-muted">
+            <i class="bi bi-info-circle"></i> 
+            Expected to Bank = Actual Cash Received - Commission - Expenses
+            <br>
+            <strong>Calculation: {{ number_format($reportData['total_actual_cash_received'], 0) }} - {{ number_format($reportData['total_commission'], 0) }} - {{ number_format($reportData['total_expenses'], 0) }} = {{ number_format($reportData['total_expected_after_deductions'], 0) }} UGX</strong>
+        </small>
+    </div>
+</div>
                     </div>
                     <div class="col-md-6">
                         <div class="card border-info mb-3">

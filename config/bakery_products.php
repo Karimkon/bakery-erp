@@ -18,4 +18,5 @@ return [
     'spring_donuts'  => 1000,
     'cream_donuts'   => 1500,
     'cinnamon_rolls' => 2000,
+    'marbel_cakes'    => 2500,
 ];

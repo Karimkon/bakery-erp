@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Production;
 use App\Models\ChefTarget;
 use App\Models\ChefProgressDaily;
+use App\Models\Ingredient;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,11 +25,22 @@ class DashboardController extends Controller
         $myValue = Production::where('user_id', $userId)->sum('total_value');
         $myVariance = Production::where('user_id', $userId)->where('has_variance', true)->count();
 
+        // Get chef's ingredients
+        $ingredients = Ingredient::where('chef_id', $userId)
+            ->orderBy('name')
+            ->get();
+        
+        // Calculate ingredient statistics
+        $totalIngredients = $ingredients->count();
+        $availableIngredients = $ingredients->where('stock', '>', 10)->count();
+        $lowStockIngredients = $ingredients->where('stock', '<=', 10)->where('stock', '>', 0)->count();
+        $outOfStockIngredients = $ingredients->where('stock', '<=', 0)->count();
+
         // Get chef target and calculate progress
         $chefTarget = ChefTarget::where('chef_id', $userId)->first();
         $todayProduction = Production::where('user_id', $userId)
             ->whereDate('production_date', $today)
-            ->where('status', 'approved') // ✅ Only count approved
+            ->where('status', 'approved')
             ->sum('total_value');
 
         // Calculate progress
@@ -57,10 +69,37 @@ class DashboardController extends Controller
             'chefTarget',
             'todayProduction',
             'progressPercentage',
-            'dailyRemaining'
+            'dailyRemaining',
+            'ingredients', // Add this
+            'totalIngredients', // Add this
+            'availableIngredients', // Add this
+            'lowStockIngredients', // Add this
+            'outOfStockIngredients' // Add this
         ));
     }
 
+
+    public function ingredients()
+{
+    $userId = Auth::id();
+    
+    $ingredients = Ingredient::where('chef_id', $userId)
+        ->orderBy('name')
+        ->get();
+    
+    $totalIngredients = $ingredients->count();
+    $availableIngredients = $ingredients->where('stock', '>', 10)->count();
+    $lowStockIngredients = $ingredients->where('stock', '<=', 10)->where('stock', '>', 0)->count();
+    $outOfStockIngredients = $ingredients->where('stock', '<=', 0)->count();
+    
+    return view('chef.ingredients', compact(
+        'ingredients',
+        'totalIngredients',
+        'availableIngredients',
+        'lowStockIngredients',
+        'outOfStockIngredients'
+    ));
+}
     private function saveChefDailyProgress($chefTarget, $achievedAmount)
     {
         try {

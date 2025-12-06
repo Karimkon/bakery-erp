@@ -59,6 +59,14 @@ class DashboardController extends Controller
         ->whereDate('created_at', '<=', $to->toDateString())
         ->sum('total_value');
 
+    $kampalaSales = \App\Models\KampalaSale::whereDate('created_at', '>=', $from->toDateString())
+    ->whereDate('created_at', '<=', $to->toDateString())
+    ->sum('total_price');
+
+$kampalaBanked = \App\Models\KampalaBanking::whereDate('date', '>=', $from->toDateString())
+    ->whereDate('date', '<=', $to->toDateString())
+    ->sum('amount');
+
 
     // Summary counts
     $totalUsers = User::count();

@@ -86,7 +86,7 @@
                                         $production->birthday_cakes30k, $production->birthday_cakes50k,
                                         $production->mandazis, $production->musiba_tayi, $production->scornes,
                                         $production->chapatys, $production->toasted_bread, $production->spring_donuts,
-                                        $production->cream_donuts, $production->cinnamon_rolls
+                                        $production->cream_donuts, $production->cinnamon_rolls, $production->marbel_cake
                                     ])->sum();
                                 @endphp
                                 <span class="badge bg-info">{{ number_format($total) }} items</span>

@@ -139,7 +139,8 @@
                             'toasted_bread' => 'Toasted Bread',
                             'spring_donuts' => 'Spring Donuts',
                             'cream_donuts' => 'Cream Donuts',
-                            'cinnamon_rolls' => 'Cinnamon Rolls'
+                            'cinnamon_rolls' => 'Cinnamon Rolls',
+                            'marbel_cake'    => 'Marbel Cake',
                         ];
                     @endphp
                     

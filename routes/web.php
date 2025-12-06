@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\ProductionApprovalController;
 
 // Home
 Route::get('/', fn () => view('welcome'));
+Route::get('/manual', fn () => view('manual'));
 
 // ----------------------
 // Login views per role
@@ -196,6 +197,14 @@ Route::middleware(['auth','role:admin'])->prefix('admin')->name('admin.')->group
     Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
     Route::resource('productions', \App\Http\Controllers\Admin\ProductionController::class);
 
+       // Bakery Sales
+    Route::get('/sales/bakery', [\App\Http\Controllers\Admin\SalesReportController::class, 'bakerySales'])->name('sales.bakery');
+    
+    // Kampala Sales
+    Route::get('/sales/kampala', [\App\Http\Controllers\Admin\SalesReportController::class, 'kampalaSales'])->name('sales.kampala');
+    Route::get('/sales/kampala/{shopId}', [\App\Http\Controllers\Admin\SalesReportController::class, 'kampalaShopDetails'])->name('sales.kampala-details');
+    Route::get('/kampala-sales/export', [\App\Http\Controllers\Admin\SalesReportController::class, 'exportKampalaSales'])->name('kampala-sales.export');
+
     // 🟢 FINANCIAL REPORTS - CORRECT STRUCTURE
     Route::prefix('reports/financial')->name('reports.financial.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\FinancialReportsController::class, 'index'])->name('index');
@@ -315,7 +324,7 @@ Route::middleware(['auth','role:chef'])->prefix('chef')->name('chef.')->group(fu
     Route::get('/dashboard', [ChefDashboardController::class,'index'])->name('dashboard');
     Route::resource('productions', \App\Http\Controllers\Chef\ProductionController::class);
     Route::get('/progress-history', [ChefDashboardController::class, 'progressHistory'])->name('progress-history');
-
+    Route::get('/ingredients', [ChefDashboardController::class, 'ingredients'])->name('ingredients.index');
 });
 
 Route::middleware(['auth','role:sales'])->prefix('sales')->name('sales.')->group(function () {

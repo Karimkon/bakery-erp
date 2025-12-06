@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\DispatchItem;
 use App\Models\Production;
-use App\Models\User; // Assuming chef is a User model
+use App\Models\User;
+use App\Models\BankDeposit; // ADD THIS
 use PDF;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ManagerDispatchExport;
@@ -24,10 +25,14 @@ class ManagerReportsController extends Controller
         // Get grouped data with proper filtering
         $dispatches = $this->getGroupedDispatches($request);
         $productions = $this->getGroupedProductions($request);
+        
+        // NEW: Get deposit tracking data
+        $depositTracking = $this->getDepositTracking($request);
 
         return view('manager.reports.index', [
             'dispatches'   => $dispatches,
             'productions'  => $productions,
+            'depositTracking' => $depositTracking, // ADD THIS
             // Dispatch filters
             'from'         => $request->input('from_date'),
             'to'           => $request->input('to_date'),
@@ -41,200 +46,219 @@ class ManagerReportsController extends Controller
     }
 
     /**
-     * Export reports as PDF
+     * NEW: Get deposit tracking data
      */
-    /**
- * Export reports as PDF
- */
-public function exportPdf(Request $request, $reportType)
-{
-    try {
-        if ($reportType === 'dispatch') {
-            $items = $this->getGroupedDispatches($request);
-            $pdf = PDF::loadView('manager.reports.pdf_dispatch', compact('items'))
-                      ->setPaper('A4', 'landscape');
-            $filename = 'dispatch_report_' . now()->format('YmdHis') . '.pdf';
-        } else {
-            $items = $this->getGroupedProductions($request);
-            $pdf = PDF::loadView('manager.reports.pdf_production', compact('items'))
-                      ->setPaper('A4', 'landscape');
-            $filename = 'production_report_' . now()->format('YmdHis') . '.pdf';
-        }
-
-        return $pdf->download($filename);
-    } catch (\Exception $e) {
-        return back()->with('error', 'Failed to generate PDF: ' . $e->getMessage());
-    }
-}
-
-/**
- * Export reports as Excel
- */
-public function exportExcel(Request $request, $reportType)
-{
-    try {
-        if ($reportType === 'dispatch') {
-            $items = $this->getGroupedDispatches($request);
-            return Excel::download(new ManagerDispatchExport($items),
-                'dispatch_report_' . now()->format('Ymd_His') . '.xlsx');
-        } else {
-            $items = $this->getGroupedProductions($request);
-            return Excel::download(new ManagerProductionExport($items),
-                'production_report_' . now()->format('Ymd_His') . '.xlsx');
-        }
-    } catch (\Exception $e) {
-        return back()->with('error', 'Failed to generate Excel: ' . e->getMessage());
-    }
-}
-
-    /**
-     * Get filtered and grouped dispatch data
-     */
-    protected function getGroupedDispatches(Request $request): Collection
-{
-    $query = DispatchItem::with([
-        'dispatch.driver:id,name',
-        'dispatch:id,dispatch_date,driver_id'
-    ]);
-
-    // Apply filters
-    $this->applyDispatchFilters($query, $request);
-
-    $dispatches = $query->get();
-
-    // Group by date and driver - use more flexible date checking
-    $grouped = $dispatches->groupBy(function ($item) {
-        $date = $item->dispatch->dispatch_date ?? null;
-        $driverId = $item->dispatch->driver->id ?? 'unknown';
-        
-        // Use the date as-is for grouping, we'll handle validation later
-        return ($date ?: 'no-date') . '-' . $driverId;
-    });
-
-    $flattened = collect();
-
-    foreach ($grouped as $group) {
-        $first = $group->first();
-        $date = $first->dispatch->dispatch_date ?? null;
-        $driverName = $first->dispatch->driver->name ?? 'Unknown Driver';
-
-        // Use the date as provided, we'll handle display in the view
-        $flattened->push((object)[
-            'date' => $date, // Keep original value (could be null, date string, or 'N/A')
-            'driver_name' => $driverName,
-            'total_qty' => $group->sum('dispatched_qty'),
-            'total_cash' => $group->sum('sold_cash'),
-            'total_credit' => $group->sum('sold_credit'),
-            'total_remaining' => $group->sum('remaining_qty'),
-            'total_value' => $group->sum('line_total'),
-        ]);
-    }
-
-    return $flattened->sortByDesc(function ($item) {
-        // Sort by date, putting null/empty dates at the end
-        return $item->date ?: '0000-00-00';
-    })->values();
-}
-
-    /**
-     * Get filtered and grouped production data
-     */
-    protected function getGroupedProductions(Request $request): Collection
+    protected function getDepositTracking(Request $request): Collection
     {
-        $query = Production::with(['chef:id,name']);
+        $query = \App\Models\Dispatch::with(['driver', 'expenses'])
+            ->select('dispatches.*')
+            ->addSelect(DB::raw('(dispatches.cash_received - dispatches.commission_total - COALESCE(expenses.total_expenses, 0)) as expected_to_bank'))
+            ->leftJoin(DB::raw('(SELECT dispatch_id, SUM(amount) as total_expenses FROM driver_expenses GROUP BY dispatch_id) as expenses'), 
+                'dispatches.id', '=', 'expenses.dispatch_id');
 
-        // Apply filters
-        $this->applyProductionFilters($query, $request);
-
-        $productions = $query->get();
-
-        // Group by date and chef
-        $grouped = $productions->groupBy(function ($production) {
-            return ($production->production_date ?? 'unknown') . '-' . ($production->chef->id ?? 'unknown');
-        });
-
-        $flattened = collect();
-
-        foreach ($grouped as $items) {
-            $first = $items->first();
-            $date = $first->production_date ?? 'N/A';
-            $chefName = $first->chef->name ?? 'N/A';
-
-            $flattened->push((object)[
-                'production_date' => $date,
-                'chef_name' => $chefName,
-                'total_chefs' => $items->unique('chef_id')->count(),
-                'total_flour_bags' => $items->sum('flour_bags'),
-                'total_value' => $items->sum('total_value'),
-                'buns' => $items->sum('buns'),
-                'small_breads' => $items->sum('small_breads'),
-                'big_breads' => $items->sum('big_breads'),
-                'donuts' => $items->sum('donuts'),
-                'half_cakes' => $items->sum('half_cakes'),
-                'block_cakes' => $items->sum('block_cakes'),
-                'slab_cakes' => $items->sum('slab_cakes'),
-                'birthday_cakes' => $items->sum('birthday_cakes'),
-            ]);
-        }
-
-        return $flattened->sortByDesc('production_date')->values();
-    }
-
-    /**
-     * Apply dispatch filters to query
-     */
-    protected function applyDispatchFilters($query, Request $request): void
-    {
-        // Date filters
+        // Date filter
         if ($request->filled('from_date')) {
-            $query->whereHas('dispatch', function ($q) use ($request) {
-                $q->whereDate('dispatch_date', '>=', $request->from_date);
-            });
+            $query->whereDate('dispatch_date', '>=', $request->from_date);
         }
-
         if ($request->filled('to_date')) {
-            $query->whereHas('dispatch', function ($q) use ($request) {
-                $q->whereDate('dispatch_date', '<=', $request->to_date);
-            });
+            $query->whereDate('dispatch_date', '<=', $request->to_date);
         }
 
         // Driver filter
         if ($request->filled('driver')) {
-            $query->whereHas('dispatch.driver', function ($q) use ($request) {
+            $query->whereHas('driver', function($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->driver . '%');
             });
         }
 
-        // Product filter
-        if ($request->filled('product')) {
-            $query->where('product', 'like', '%' . $request->product . '%');
-        }
-    }
+        $dispatches = $query->get();
 
-    /**
-     * Apply production filters to query
-     */
-    protected function applyProductionFilters($query, Request $request): void
-    {
-        // Date filters
-        if ($request->filled('prod_from')) {
-            $query->whereDate('production_date', '>=', $request->prod_from);
+        // Get bank deposits for the same period and driver
+        $depositsQuery = BankDeposit::with('depositor');
+        
+        if ($request->filled('from_date')) {
+            $depositsQuery->whereDate('deposit_date', '>=', $request->from_date);
         }
-
-        if ($request->filled('prod_to')) {
-            $query->whereDate('production_date', '<=', $request->prod_to);
+        if ($request->filled('to_date')) {
+            $depositsQuery->whereDate('deposit_date', '<=', $request->to_date);
         }
-
-        // Chef filter
-        if ($request->filled('chef')) {
-            $query->whereHas('chef', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->chef . '%');
+        if ($request->filled('driver')) {
+            $depositsQuery->whereHas('depositor', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->driver . '%');
             });
         }
 
-        // Product filter (if applicable to production)
-        if ($request->filled('product')) {
-            $query->where('product_type', 'like', '%' . $request->product . '%');
+        $deposits = $depositsQuery->get();
+
+        // Group by driver and calculate totals
+        $driverData = [];
+
+        foreach ($dispatches as $dispatch) {
+            $driverId = $dispatch->driver_id;
+            $driverName = $dispatch->driver->name;
+
+            if (!isset($driverData[$driverId])) {
+                $driverData[$driverId] = [
+                    'driver_name' => $driverName,
+                    'total_cash_collected' => 0,
+                    'total_commission' => 0,
+                    'total_expenses' => 0,
+                    'total_expected_to_bank' => 0,
+                    'total_actually_banked' => 0,
+                ];
+            }
+
+            $expenses = $dispatch->expenses->sum('amount');
+            $expectedToBank = $dispatch->cash_received - $dispatch->commission_total - $expenses;
+
+            $driverData[$driverId]['total_cash_collected'] += $dispatch->cash_received;
+            $driverData[$driverId]['total_commission'] += $dispatch->commission_total;
+            $driverData[$driverId]['total_expenses'] += $expenses;
+            $driverData[$driverId]['total_expected_to_bank'] += $expectedToBank;
+        }
+
+        // Add actual bank deposits
+        foreach ($deposits as $deposit) {
+            $driverId = $deposit->user_id;
+            if (isset($driverData[$driverId])) {
+                $driverData[$driverId]['total_actually_banked'] += $deposit->amount;
+            }
+        }
+
+        // Convert to collection and calculate shortages
+        $result = collect();
+        foreach ($driverData as $driverId => $data) {
+            $shortage = $data['total_expected_to_bank'] - $data['total_actually_banked'];
+            
+            $result->push((object)[
+                'driver_name' => $data['driver_name'],
+                'total_cash_collected' => $data['total_cash_collected'],
+                'total_commission' => $data['total_commission'],
+                'total_expenses' => $data['total_expenses'],
+                'total_expected_to_bank' => $data['total_expected_to_bank'],
+                'total_actually_banked' => $data['total_actually_banked'],
+                'shortage_excess' => $shortage,
+                'status' => $shortage > 0 ? 'SHORTAGE' : ($shortage < 0 ? 'EXCESS' : 'SETTLED')
+            ]);
+        }
+
+        return $result->sortBy('driver_name')->values();
+    }
+
+    /**
+     * NEW: Sales vs Deposits Report Page
+     */
+    public function salesVsDeposits(Request $request)
+    {
+        $drivers = User::where('role', 'driver')->orderBy('name')->get();
+        $reportData = [];
+        
+        if ($request->filled('driver_id') && $request->filled('date_from') && $request->filled('date_to')) {
+            $reportData = $this->generateSalesVsDepositsReport(
+                $request->driver_id,
+                $request->date_from,
+                $request->date_to
+            );
+        }
+
+        return view('manager.reports.sales-vs-deposits', compact('drivers', 'reportData'));
+    }
+
+    /**
+     * NEW: Generate detailed sales vs deposits report
+     */
+    protected function generateSalesVsDepositsReport($driverId, $dateFrom, $dateTo)
+    {
+        // Get all dispatches for the driver in date range
+        $dispatches = \App\Models\Dispatch::with(['expenses', 'items'])
+            ->where('driver_id', $driverId)
+            ->whereBetween('dispatch_date', [$dateFrom, $dateTo])
+            ->get();
+
+        // Get all bank deposits for the driver in date range
+        $deposits = BankDeposit::where('user_id', $driverId)
+            ->whereBetween('deposit_date', [$dateFrom, $dateTo])
+            ->get();
+
+        // Calculate totals
+        $totalCashReceived = $dispatches->sum('cash_received');
+        $totalCommission = $dispatches->sum('commission_total');
+        $totalExpenses = $dispatches->sum(function($dispatch) {
+            return $dispatch->expenses->sum('amount');
+        });
+        $totalExpectedToBank = $totalCashReceived - $totalCommission - $totalExpenses;
+        $totalActuallyBanked = $deposits->sum('amount');
+        $shortageExcess = $totalExpectedToBank - $totalActuallyBanked;
+
+        // Get total sales value (for reference)
+        $totalSalesValue = $dispatches->sum('total_sales_value');
+
+        return [
+            'driver' => User::find($driverId),
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'total_cash_received' => $totalCashReceived,
+            'total_commission' => $totalCommission,
+            'total_expenses' => $totalExpenses,
+            'total_expected_to_bank' => $totalExpectedToBank,
+            'total_actually_banked' => $totalActuallyBanked,
+            'shortage_excess' => $shortageExcess,
+            'total_sales_value' => $totalSalesValue,
+            'dispatches' => $dispatches,
+            'deposits' => $deposits,
+        ];
+    }
+
+    // ... keep your existing methods (getGroupedDispatches, getGroupedProductions, etc.) ...
+    
+    /**
+     * Export deposit tracking report
+     */
+    public function exportDepositTracking(Request $request)
+    {
+        try {
+            $depositTracking = $this->getDepositTracking($request);
+            
+            return Excel::download(new class($depositTracking) extends \Maatwebsite\Excel\Concerns\FromCollection {
+                private $data;
+                
+                public function __construct($data)
+                {
+                    $this->data = $data;
+                }
+                
+                public function collection()
+                {
+                    $headers = collect([[
+                        'Driver Name',
+                        'Cash Collected',
+                        'Commission',
+                        'Expenses', 
+                        'Expected to Bank',
+                        'Actually Banked',
+                        'Shortage/Excess',
+                        'Status'
+                    ]]);
+                    
+                    $rows = $this->data->map(function($item) {
+                        return [
+                            $item->driver_name,
+                            $item->total_cash_collected,
+                            $item->total_commission,
+                            $item->total_expenses,
+                            $item->total_expected_to_bank,
+                            $item->total_actually_banked,
+                            $item->shortage_excess,
+                            $item->status
+                        ];
+                    });
+                    
+                    return $headers->merge($rows);
+                }
+            }, 'deposit_tracking_' . now()->format('Ymd_His') . '.xlsx');
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to export: ' . $e->getMessage());
         }
     }
 }

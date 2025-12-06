@@ -32,6 +32,7 @@ class Production extends Model
         'spring_donuts',
         'cream_donuts',
         'cinnamon_rolls',
+        'marble_cakes',
         'total_value',
         'has_variance',
         'variance_notes',
