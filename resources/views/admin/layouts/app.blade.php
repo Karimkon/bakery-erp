@@ -348,6 +348,27 @@ body {
                 </div>
             </div>
 
+            <!-- Kampala Shops -->
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#kampalaCollapse">
+            <i class="bi bi-shop"></i> Kampala Shops
+        </button>
+    </h2>
+    <div id="kampalaCollapse" class="accordion-collapse collapse {{ request()->is('admin/kampala*') ? 'show' : '' }}">
+        <div class="accordion-body">
+            <a href="{{ route('admin.kampala.dashboard') }}" 
+               class="{{ request()->routeIs('admin.kampala.dashboard') ? 'active' : '' }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{{ route('admin.sales.kampala') }}" 
+               class="{{ request()->routeIs('admin.sales.kampala*') ? 'active' : '' }}">
+                <i class="bi bi-graph-up"></i> Sales Reports
+            </a>
+        </div>
+    </div>
+</div>
+
             <!-- Chef Targets -->
 <a href="{{ route('admin.chef_targets.index') }}" 
    class="{{ request()->routeIs('admin.chef_targets.*') ? 'active' : '' }}">

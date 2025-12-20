@@ -316,6 +316,16 @@ Route::prefix('reports')->name('reports.')->group(function () {
     Route::post('daily-production/auto-send', [\App\Http\Controllers\Admin\DailyProductionReportController::class, 'autoSendDailyReport'])->name('daily-production.auto-send');
 });
 
+ // Kampala Admin Dashboard
+    Route::prefix('kampala')->name('kampala.')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Admin\KampalaAdminController::class, 'dashboard'])
+            ->name('dashboard');
+        Route::get('/shop/{shop}/activities', [\App\Http\Controllers\Admin\KampalaAdminController::class, 'shopActivities'])
+            ->name('shop-activities');
+        Route::get('/shop/{shop}/activities/export', [\App\Http\Controllers\Admin\KampalaAdminController::class, 'exportActivities'])
+            ->name('shop-activities.export');
+    });
+    
 
 
 });
